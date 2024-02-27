@@ -12,6 +12,7 @@
         <module>Service</module>
         <module>Utilities</module>
         <module>Communication</module>
+        <module>Security</module>
         <module>Client</module>
     </modules>
 
