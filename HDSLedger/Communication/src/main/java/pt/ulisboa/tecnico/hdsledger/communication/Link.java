@@ -140,6 +140,52 @@ public class Link {
         }).start();
     }
 
+
+    /*
+     * Sends a message to a specific node with guarantee of delivery
+     *
+     * @param nodeId The node identifier
+     *
+     * @param data The message to be sent
+     */
+    public void send_to_server(Message data) {
+
+        // Spawn a new thread to send the message
+        // To avoid blocking while waiting for ACK
+        new Thread(() -> {
+            try {
+                // If the message is not ACK, it will be resent
+                InetAddress destAddress = InetAddress.getByName("localhost");
+                int destPort = 3001;
+                int count = 1;
+                int messageId = data.getMessageId();
+                int sleepTime = BASE_SLEEP_TIME;
+
+                for (;;) {
+                    LOGGER.log(Level.INFO, MessageFormat.format(
+                            "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
+                            data.getType(), destAddress, destPort, messageId, count++));
+
+                    unreliableSend(destAddress, destPort, data);
+
+                    // Wait (using exponential back-off), then look for ACK
+                    Thread.sleep(sleepTime);
+
+                    // Receive method will set receivedAcks when sees corresponding ACK
+                    if (receivedAcks.contains(messageId))
+                        break;
+
+                    sleepTime <<= 1;
+                }
+
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Message {1} sent to {2}:{3} successfully",
+                        config.getId(), data.getType(), destAddress, destPort));
+            } catch (InterruptedException | UnknownHostException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
     /*
      * Sends a message to a specific node without guarantee of delivery
      * Mainly used to send ACKs, if they are lost, the original message will be
@@ -192,8 +238,8 @@ public class Link {
         String senderId = message.getSenderId();
         int messageId = message.getMessageId();
 
-        if (!nodes.containsKey(senderId))
-            throw new HDSSException(ErrorMessage.NoSuchNode);
+        //if (!nodes.containsKey(senderId))
+        //    throw new HDSSException(ErrorMessage.NoSuchNode);
 
         // Handle ACKS, since it's possible to receive multiple acks from the same
         // message
