@@ -238,8 +238,8 @@ public class Link {
         String senderId = message.getSenderId();
         int messageId = message.getMessageId();
 
-        //if (!nodes.containsKey(senderId))
-        //    throw new HDSSException(ErrorMessage.NoSuchNode);
+        if (!nodes.containsKey(senderId))
+            throw new HDSSException(ErrorMessage.NoSuchNode);
 
         // Handle ACKS, since it's possible to receive multiple acks from the same
         // message
