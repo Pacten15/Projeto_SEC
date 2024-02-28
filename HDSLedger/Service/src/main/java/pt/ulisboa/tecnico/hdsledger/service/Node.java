@@ -1,11 +1,14 @@
 package pt.ulisboa.tecnico.hdsledger.service;
 
+
+import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
+
 
 import java.text.MessageFormat;
 import java.util.Arrays;
@@ -23,6 +26,8 @@ public class Node {
             // Command line arguments
             String id = args[0];
             nodesConfigPath += args[1];
+
+            CryptoUtils.createKeyPair(4096, "/home/kali/Desktop/Projeto_SEC/HDSLedger/Security/keys/private_key_server_" + id + ".key" , "/home/kali/Desktop/Projeto_SEC/HDSLedger/Security/keys/public_key_server_" + id + ".key");
 
             // Create configuration instances
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);

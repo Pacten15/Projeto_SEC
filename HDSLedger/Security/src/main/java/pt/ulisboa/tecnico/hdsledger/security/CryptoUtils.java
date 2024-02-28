@@ -3,8 +3,13 @@ package pt.ulisboa.tecnico.hdsledger.security;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.Key;
 import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
@@ -110,5 +115,34 @@ public class CryptoUtils {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public static KeyPair createKeyPair(int keySize, String publicKeyPath, String privateKeyPath) throws NoSuchAlgorithmException, IOException {
+        // Generate the key pair
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(keySize);
+        KeyPair keyPair = keyGen.generateKeyPair();
+
+        // Get public and private keys
+        PublicKey publicKey = keyPair.getPublic();
+        PrivateKey privateKey = keyPair.getPrivate();
+
+        // Write public key to file
+        try {
+            Files.write(Paths.get(publicKeyPath), publicKey.getEncoded());
+        } catch (IOException e) {
+            System.err.println("ERROR: Unable to write public key to file.");
+            throw e;
+        }
+
+        // Write private key to file
+        try {
+            Files.write(Paths.get(privateKeyPath), privateKey.getEncoded());
+        } catch (IOException e) {
+            System.err.println("ERROR: Unable to write private key to file.");
+            throw e;
+        }
+
+        return keyPair;
     }
 }
