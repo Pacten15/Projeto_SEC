@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.communication;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 import pt.ulisboa.tecnico.hdsledger.communication.Message.Type;
 import pt.ulisboa.tecnico.hdsledger.utilities.*;
@@ -119,6 +120,8 @@ public class Link {
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
                             data.getType(), destAddress, destPort, messageId, count++));
+                            
+
 
                     unreliableSend(destAddress, destPort, data);
 
@@ -200,6 +203,13 @@ public class Link {
     public void unreliableSend(InetAddress hostname, int port, Message data) {
         new Thread(() -> {
             try {
+
+                String message_to_send = new Gson().toJson(data);
+                
+                
+            
+                System.out.println("Sending message: " + message_to_send);
+                
                 byte[] buf = new Gson().toJson(data).getBytes();
                 DatagramPacket packet = new DatagramPacket(buf, buf.length, hostname, port);
                 socket.send(packet);

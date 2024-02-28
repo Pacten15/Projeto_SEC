@@ -92,7 +92,7 @@ public class CryptoUtils {
         }
     }
 
-    public static String decrypt_message(String message, Key key) {
+    public static String decryptMessage(String message, Key key) {
         try {
             Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
             cipher.init(Cipher.DECRYPT_MODE, key);
@@ -104,7 +104,7 @@ public class CryptoUtils {
         }
     }
 
-    public static String sign_message(String message, PrivateKey privateKey) {
+    public static String signMessage(String message, PrivateKey privateKey) {
         try {
             Signature signature = Signature.getInstance("SHA256withRSA");
             signature.initSign(privateKey);

@@ -10,6 +10,7 @@ public class Message implements Serializable {
     private int messageId;
     // Message type
     private Type type;
+ 
 
     public enum Type {
         APPEND, PRE_PREPARE, PREPARE, COMMIT, ACK, IGNORE;

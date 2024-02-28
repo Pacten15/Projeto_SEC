@@ -27,8 +27,9 @@ public class Node {
             String id = args[0];
             nodesConfigPath += args[1];
 
-            CryptoUtils.createKeyPair(4096, "/home/kali/Desktop/Projeto_SEC/HDSLedger/Security/keys/private_key_server_" + id + ".key" , "/home/kali/Desktop/Projeto_SEC/HDSLedger/Security/keys/public_key_server_" + id + ".key");
-
+            // Generate key pair to each server
+            CryptoUtils.createKeyPair(4096, "../Security/keys/public_key_server_" + id + ".key" , "../Security/keys/private_key_server_" + id + ".key");
+            
             // Create configuration instances
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);
             ProcessConfig leaderConfig = Arrays.stream(nodeConfigs).filter(ProcessConfig::isLeader).findAny().get();
@@ -45,8 +46,11 @@ public class Node {
             // Services that implement listen from UDPService
             NodeService nodeService = new NodeService(linkToNodes, nodeConfig, leaderConfig,
                     nodeConfigs);
+            
 
             nodeService.listen();
+
+            nodeService.startConsensus("a");
 
         } catch (Exception e) {
             e.printStackTrace();
