@@ -22,7 +22,7 @@ import java.util.Base64;
 public class CryptoUtils {
 
 
-    public static boolean verify_signature(String message, String signature, PublicKey publicKey) {
+    public static boolean verifySignature(String message, String signature, PublicKey publicKey) {
         try {
             Signature sig = Signature.getInstance("SHA256withRSA");
             sig.initVerify(publicKey);
@@ -43,7 +43,7 @@ public class CryptoUtils {
         return content;
     }
 
-    public static PrivateKey get_private_key(String file_path) {
+    public static PrivateKey getPrivateKey(String file_path) {
         try {
             byte[] keyBytes = readFile(file_path);
             PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
@@ -56,7 +56,7 @@ public class CryptoUtils {
         }
     }
 
-    public static PublicKey get_public_key(String file_path) {
+    public static PublicKey getPublicKey(String file_path) {
         try {
             byte[] keyBytes = readFile(file_path);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
@@ -69,7 +69,7 @@ public class CryptoUtils {
         }
     }
 
-    public static Key read_sym_key(String file_path){
+    public static Key readSymKey(String file_path){
         try{
             byte[] encoded = readFile(file_path);
             SecretKeySpec keySpec = new SecretKeySpec(encoded, "AES");
@@ -80,7 +80,7 @@ public class CryptoUtils {
         }
     }
 
-    public static String encrypt_message(String message, Key key) {
+    public static String encrypMessage(String message, Key key) {
         try {
             Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
             cipher.init(Cipher.ENCRYPT_MODE, key);

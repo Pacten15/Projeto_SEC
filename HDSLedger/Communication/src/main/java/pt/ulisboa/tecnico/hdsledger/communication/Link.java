@@ -1,10 +1,10 @@
 package pt.ulisboa.tecnico.hdsledger.communication;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 
 import pt.ulisboa.tecnico.hdsledger.communication.Message.Type;
 import pt.ulisboa.tecnico.hdsledger.utilities.*;
+import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 
 import java.io.IOException;
 import java.net.*;
@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
+
 
 public class Link {
 
@@ -168,6 +169,7 @@ public class Link {
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
                             data.getType(), destAddress, destPort, messageId, count++));
+                    
 
                     unreliableSend(destAddress, destPort, data);
 
@@ -204,13 +206,25 @@ public class Link {
         new Thread(() -> {
             try {
 
-                String message_to_send = new Gson().toJson(data);
-                
-                
-            
-                System.out.println("Sending message: " + message_to_send);
-                
-                byte[] buf = new Gson().toJson(data).getBytes();
+                String message = new Gson().toJson(data);
+
+                String signature;
+
+                if (data.getType() != Type.APPEND)
+                {
+                    try {
+                        signature = CryptoUtils.signMessage(message, CryptoUtils.getPrivateKey("../Security/keys/private_key_server_" + config.getId() + ".key"));
+                        SignatureMessage signatureMessage = new SignatureMessage(message, signature);
+                        message = new Gson().toJson(signatureMessage);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new HDSSException(ErrorMessage.SignatureError);
+                    }
+                }
+
+                System.out.println("Sending message: " + message);
+
+                byte[] buf = message.getBytes();
                 DatagramPacket packet = new DatagramPacket(buf, buf.length, hostname, port);
                 socket.send(packet);
             } catch (IOException e) {
@@ -226,11 +240,13 @@ public class Link {
     public Message receive() throws IOException, ClassNotFoundException {
 
         Message message = null;
+        SignatureMessage signatureMessage = null;
         String serialized = "";
         Boolean local = false;
         DatagramPacket response = null;
         
         if (this.localhostQueue.size() > 0) {
+            
             message = this.localhostQueue.poll();
             local = true; 
             this.receivedAcks.add(message.getMessageId());
@@ -242,7 +258,11 @@ public class Link {
 
             byte[] buffer = Arrays.copyOfRange(response.getData(), 0, response.getLength());
             serialized = new String(buffer);
-            message = new Gson().fromJson(serialized, Message.class);
+            signatureMessage = new Gson().fromJson(serialized, SignatureMessage.class);
+
+            System.out.println("Received message: " + signatureMessage.getMessage());
+
+            message = new Gson().fromJson(signatureMessage.getMessage(), Message.class);
         }
 
         String senderId = message.getSenderId();
@@ -260,7 +280,7 @@ public class Link {
 
         // It's not an ACK -> Deserialize for the correct type
         if (!local)
-            message = new Gson().fromJson(serialized, this.messageClass);
+            message = new Gson().fromJson(signatureMessage.getMessage(), this.messageClass);
 
         boolean isRepeated = !receivedMessages.get(message.getSenderId()).add(messageId);
         Type originalType = message.getType();
@@ -297,6 +317,7 @@ public class Link {
             int port = response.getPort();
 
             Message responseMessage = new Message(this.config.getId(), Message.Type.ACK);
+            
             responseMessage.setMessageId(messageId);
 
             // ACK is sent without needing for another ACK because
@@ -305,7 +326,13 @@ public class Link {
             // it will discard duplicates
             unreliableSend(address, port, responseMessage);
         }
-        
-        return message;
+
+        if(signatureMessage == null)
+            return message;
+
+        if(signatureMessage != null && CryptoUtils.verifySignature(signatureMessage.getMessage(), signatureMessage.getSignature(), CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + senderId + ".key")))
+            return message;
+        else
+            throw new HDSSException(ErrorMessage.SignatureError);
     }
 }
