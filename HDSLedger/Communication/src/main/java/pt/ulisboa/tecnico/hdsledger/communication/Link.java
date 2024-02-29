@@ -210,11 +210,16 @@ public class Link {
 
                 String signature;
 
+                // Security implementation on the sending level
+                //Append Message is the only message that is sent by the client
                 if (data.getType() != Type.APPEND)
                 {
                     try {
+                        // Sign the message
                         signature = CryptoUtils.signMessage(message, CryptoUtils.getPrivateKey("../Security/keys/private_key_server_" + config.getId() + ".key"));
+                        // Create a signature message wich is a message consisting of the original message and the signature
                         SignatureMessage signatureMessage = new SignatureMessage(message, signature);
+                        // Serialize the signature message to send it
                         message = new Gson().toJson(signatureMessage);
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -258,10 +263,10 @@ public class Link {
 
             byte[] buffer = Arrays.copyOfRange(response.getData(), 0, response.getLength());
             serialized = new String(buffer);
+
+            //Get message from the serialized signature message
             signatureMessage = new Gson().fromJson(serialized, SignatureMessage.class);
-
             System.out.println("Received message: " + signatureMessage.getMessage());
-
             message = new Gson().fromJson(signatureMessage.getMessage(), Message.class);
         }
 
@@ -330,6 +335,8 @@ public class Link {
         if(signatureMessage == null)
             return message;
 
+        // Security implementation on the receiving level
+        //If a message received is signed, it is verified
         if(signatureMessage != null && CryptoUtils.verifySignature(signatureMessage.getMessage(), signatureMessage.getSignature(), CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + senderId + ".key")))
             return message;
         else
