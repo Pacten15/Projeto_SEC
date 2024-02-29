@@ -26,6 +26,4 @@ public class ProcessConfig {
     public String getHostname() {
         return hostname;
     }
-
-
 }

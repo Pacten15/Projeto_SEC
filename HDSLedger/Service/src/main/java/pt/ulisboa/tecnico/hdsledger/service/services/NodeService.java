@@ -126,12 +126,10 @@ public class NodeService implements UDPService {
         // Leader broadcasts PRE-PREPARE message
         if (this.config.isLeader()) {
             InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
-            LOGGER.log(Level.INFO,
-                MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
             this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
         } else {
-            LOGGER.log(Level.INFO,
-                    MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
         }
     }
 
@@ -147,15 +145,16 @@ public class NodeService implements UDPService {
         int round = message.getRound();
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
+        ConsensusMessage.TimerState timer = message.getTimerState();
+        System.out.println("boas" + timer);
 
         PrePrepareMessage prePrepareMessage = message.deserializePrePrepareMessage();
 
         String value = prePrepareMessage.getValue();
 
-        LOGGER.log(Level.INFO,
-                MessageFormat.format(
-                        "{0} - Received PRE-PREPARE message from {1} Consensus Instance {2}, Round {3}",
-                        config.getId(), senderId, consensusInstance, round));
+        LOGGER.log(Level.INFO, MessageFormat.format(
+            "{0} - Received PRE-PREPARE message from {1} Consensus Instance {2}, Round {3}",
+            config.getId(), senderId, consensusInstance, round));
 
         // Verify if pre-prepare was sent by leader
         if (!isLeader(senderId))
@@ -168,11 +167,8 @@ public class NodeService implements UDPService {
         // for any round r
         receivedPrePrepare.putIfAbsent(consensusInstance, new ConcurrentHashMap<>());
         if (receivedPrePrepare.get(consensusInstance).put(round, true) != null) {
-            LOGGER.log(Level.INFO,
-                    MessageFormat.format(
-                            "{0} - Already received PRE-PREPARE message for Consensus Instance {1}, Round {2}, "
-                                    + "replying again to make sure it reaches the initial sender",
-                            config.getId(), consensusInstance, round));
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Already received PRE-PREPARE message for Consensus Instance {1}, Round {2}, "
+                + "replying again to make sure it reaches the initial sender", config.getId(), consensusInstance, round));
         }
 
         PrepareMessage prepareMessage = new PrepareMessage(prePrepareMessage.getValue());
@@ -303,8 +299,7 @@ public class NodeService implements UDPService {
             return;
         }
 
-        Optional<String> commitValue = commitMessages.hasValidCommitQuorum(config.getId(),
-                consensusInstance, round);
+        Optional<String> commitValue = commitMessages.hasValidCommitQuorum(config.getId(), consensusInstance, round);
 
         if (commitValue.isPresent() && instance.getCommittedRound() < round) {
 
@@ -324,18 +319,14 @@ public class NodeService implements UDPService {
                 
                 ledger.add(consensusInstance - 1, value);
                 
-                LOGGER.log(Level.INFO,
-                    MessageFormat.format(
-                            "{0} - Current Ledger: {1}",
-                            config.getId(), String.join("", ledger)));
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Current Ledger: {1}",
+                    config.getId(), String.join("", ledger)));
             }
 
             lastDecidedConsensusInstance.getAndIncrement();
 
-            LOGGER.log(Level.INFO,
-                    MessageFormat.format(
-                            "{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
-                            config.getId(), consensusInstance, round, true));
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
+                config.getId(), consensusInstance, round, true));
         }
     }
 
@@ -363,6 +354,11 @@ public class NodeService implements UDPService {
 
                                 case COMMIT ->
                                     uponCommit((ConsensusMessage) message);
+
+                                
+                                case ROUND_CHANGE ->
+                                    //uponTimerExpired((ConsensusMessage) message);
+                                    throw new UnsupportedOperationException("Feature incomplete. Contact assistance.");
 
 
                                 case ACK ->

@@ -12,6 +12,13 @@ public class InstanceInfo {
     private String inputValue;
     private int committedRound = -1;
 
+    // Timer used to trigger a round change
+    private TimerState timerState;
+
+    public enum TimerState {
+        RUNNING, EXPIRED;
+    }
+
     public InstanceInfo(String inputValue) {
         this.inputValue = inputValue;
     }
@@ -62,5 +69,13 @@ public class InstanceInfo {
 
     public void setCommitMessage(CommitMessage commitMessage) {
         this.commitMessage = commitMessage;
+    }
+
+    public TimerState getTimerState() {
+        return timerState;
+    }
+
+    public void setTimerState(TimerState timerState) {
+        this.timerState = timerState;
     }
 }
