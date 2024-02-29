@@ -145,8 +145,6 @@ public class NodeService implements UDPService {
         int round = message.getRound();
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
-        ConsensusMessage.TimerState timer = message.getTimerState();
-        System.out.println("boas" + timer);
 
         PrePrepareMessage prePrepareMessage = message.deserializePrePrepareMessage();
 
