@@ -3,6 +3,10 @@ package pt.ulisboa.tecnico.hdsledger.service.models;
 
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 
+import java.text.MessageFormat;
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class InstanceInfo {
 
     // State Variables
@@ -76,7 +80,15 @@ public class InstanceInfo {
         return timerState;
     }
 
-    public void setTimerState(TimerState timerState) {
-        this.timerState = timerState;
+    public void setTimer(TimerState timerState, int currentRound) {
+        if(timerState == TimerState.RUNNING) 
+        {
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() { }
+            }, 0, (long)Math.exp(currentRound));
+            this.timerState = TimerState.EXPIRED;
+        }
     }
 }
