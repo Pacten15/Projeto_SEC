@@ -1,6 +1,5 @@
 package pt.ulisboa.tecnico.hdsledger.service;
 
-
 import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
@@ -36,18 +35,14 @@ public class Node {
             ProcessConfig nodeConfig = Arrays.stream(nodeConfigs).filter(c -> c.getId().equals(id)).findAny().get();
 
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Running at {1}:{2}; is leader: {3}",
-                    nodeConfig.getId(), nodeConfig.getHostname(), nodeConfig.getPort(),
-                    nodeConfig.isLeader()));
+                    nodeConfig.getId(), nodeConfig.getHostname(), nodeConfig.getPort(), nodeConfig.isLeader()));
 
             // Abstraction to send and receive messages
-            Link linkToNodes = new Link(nodeConfig, nodeConfig.getPort(), nodeConfigs,
-                    ConsensusMessage.class);
+            Link linkToNodes = new Link(nodeConfig, nodeConfig.getPort(), nodeConfigs, ConsensusMessage.class);
 
             // Services that implement listen from UDPService
-            NodeService nodeService = new NodeService(linkToNodes, nodeConfig, leaderConfig,
-                    nodeConfigs);
+            NodeService nodeService = new NodeService(linkToNodes, nodeConfig, leaderConfig, nodeConfigs);
             
-
             nodeService.listen();
 
         } catch (Exception e) {

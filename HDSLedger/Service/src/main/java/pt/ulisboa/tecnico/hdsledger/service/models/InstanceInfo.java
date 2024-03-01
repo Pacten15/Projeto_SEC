@@ -5,13 +5,14 @@ import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 
 public class InstanceInfo {
 
+    // State Variables
     private int currentRound = 1;
     private int preparedRound = -1;
     private String preparedValue;
-    private CommitMessage commitMessage;
     private String inputValue;
-    private int committedRound = -1;
 
+    private CommitMessage commitMessage;
+    private int committedRound = -1;
     // Timer used to trigger a round change
     private TimerState timerState;
 
