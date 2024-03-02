@@ -1,6 +1,5 @@
 package pt.ulisboa.tecnico.hdsledger.utilities;
 
-import java.security.Signature;
 
 public enum ErrorMessage {
     ConfigFileNotFound("The configuration file is not available at the path supplied"),

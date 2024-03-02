@@ -35,16 +35,6 @@ public class ConsensusMessageBuilder {
         return this;
     }
 
-    public ConsensusMessageBuilder setPreparedRound(int preparedRound) {
-        instance.setPreparedRound(preparedRound);
-        return this;
-    }
-
-    public ConsensusMessageBuilder setPreparedValue(String preparedValue) {
-        instance.setPreparedValue(preparedValue);
-        return this;
-    }
-
     public ConsensusMessage build() {
         return instance;
     }

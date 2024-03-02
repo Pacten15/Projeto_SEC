@@ -42,4 +42,6 @@ while True:
     print("Type quit to quit")
     command = input(">> ")
     if command.strip() == "quit":
+        os.system(
+            f"{terminal} sh -c \"cd Security/keys; rm -r *.key'; sleep 1\"")
         quit_handler()

@@ -15,9 +15,6 @@ public class ConsensusMessage extends Message {
     // Message (PREPREPARE, PREPARE, COMMIT)
     private String message;
 
-    private int preparedRound;
-    private String preparedValue;
-
     public ConsensusMessage(String senderId, Type type) {
         super(senderId, type);
     }
@@ -76,18 +73,6 @@ public class ConsensusMessage extends Message {
 
     public void setReplyToMessageId(int replyToMessageId) {
         this.replyToMessageId = replyToMessageId;
-    }
-
-
-
-
-
-    public void setPreparedRound(int preparedRound) {
-        this.preparedRound = preparedRound;
-    }
-
-    public void setPreparedValue(String preparedValue) {
-        this.preparedValue = preparedValue;
     }
 
 }

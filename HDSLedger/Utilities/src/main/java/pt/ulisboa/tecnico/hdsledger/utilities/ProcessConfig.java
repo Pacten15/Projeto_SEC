@@ -11,6 +11,8 @@ public class ProcessConfig {
 
     private int port;
 
+    private Behaviour behaviour = Behaviour.NORMAL;
+
     public boolean isLeader() {
         return isLeader;
     }
@@ -25,5 +27,13 @@ public class ProcessConfig {
 
     public String getHostname() {
         return hostname;
+    }
+
+    public Behaviour getBehaviour() {
+        return behaviour;
+    }
+
+    public void setBehaviour(Behaviour behaviour) {
+        this.behaviour = behaviour;
     }
 }
