@@ -45,6 +45,8 @@ public class Node {
             
             nodeService.listen();
 
+            nodeService.startConsensus("a");
+
         } catch (Exception e) {
             e.printStackTrace();
         }

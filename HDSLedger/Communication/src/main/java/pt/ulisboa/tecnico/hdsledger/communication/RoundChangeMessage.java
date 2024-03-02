@@ -4,15 +4,21 @@ import com.google.gson.Gson;
 
 public class RoundChangeMessage {
 
-    // Value
-    private String value;
+    private int preparedRound;
 
-    public RoundChangeMessage(String value) {
-        this.value = value;
+    private String preparedValue;
+
+    public RoundChangeMessage(int prepareRound, String preparedValue) {
+        this.preparedRound = prepareRound;
+        this.preparedValue = preparedValue;
     }
 
-    public String getValue() {
-        return value;
+    public int getPreparedRound() {
+        return preparedRound;
+    }
+
+    public String getPreparedValue() {
+        return preparedValue;
     }
 
     public String toJson() {

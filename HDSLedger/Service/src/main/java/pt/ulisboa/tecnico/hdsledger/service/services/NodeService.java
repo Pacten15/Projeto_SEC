@@ -20,9 +20,13 @@ import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.builder.ConsensusMessageBuilder;
 import pt.ulisboa.tecnico.hdsledger.service.models.InstanceInfo;
 import pt.ulisboa.tecnico.hdsledger.service.models.MessageBucket;
-import pt.ulisboa.tecnico.hdsledger.service.models.InstanceInfo.TimerState;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
+
+import java.util.Timer;
+import java.util.TimerTask;
+
+
 
 public class NodeService implements UDPService {
 
@@ -51,6 +55,12 @@ public class NodeService implements UDPService {
     private final AtomicInteger consensusInstance = new AtomicInteger(0);
     // Last decided consensus instance
     private final AtomicInteger lastDecidedConsensusInstance = new AtomicInteger(0);
+
+
+    //Timer used by the non-leader nodes to send round change messages in case it expires 
+    private Timer timer;
+
+
 
     // Ledger (for now, just a list of strings)
     private ArrayList<String> ledger = new ArrayList<String>();
@@ -129,7 +139,6 @@ public class NodeService implements UDPService {
             InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
             this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
-            instance.setTimer(TimerState.RUNNING, instance.getCurrentRound());
         } else {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
         }
@@ -172,6 +181,8 @@ public class NodeService implements UDPService {
 
         PrepareMessage prepareMessage = new PrepareMessage(prePrepareMessage.getValue());
 
+
+
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.PREPARE)
             .setConsensusInstance(consensusInstance)
             .setRound(round)
@@ -180,7 +191,32 @@ public class NodeService implements UDPService {
             .setReplyToMessageId(senderMessageId)
             .build();
 
+        //Initializes the timer for the non-leader nodes
+        if (!this.config.isLeader()) {
+            setTimer(consensusMessage);
+        }
+
         this.link.broadcast(consensusMessage);
+    }
+
+     /*
+     * Initiates a timer and executes the round change message if it expires
+     *
+     * @param message Message to be handled
+     */
+
+    public synchronized void setTimer(ConsensusMessage message) {
+        //Set the timer for the non-leader nodes
+        timer = new Timer();
+        System.out.println("Timer has initiated");
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+
+                uponTimerExpired(message);
+                System.out.println("Timer expired");
+            }
+        }, 1000 * 30);
     }
 
     /*
@@ -316,30 +352,33 @@ public class NodeService implements UDPService {
         }
     }
 
+    
+
     public synchronized void uponTimerExpired(ConsensusMessage message) 
     {
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound() + 1;
-        // Not sure if needed yet
-        //String senderId = message.getSenderId();
-        //int senderMessageId = message.getMessageId();
-        
-        InstanceInfo instance = this.instanceInfo.get(consensusInstance);
-        instance.setTimer(TimerState.RUNNING, instance.getCurrentRound());
+        String senderId = message.getSenderId();
+        int senderMessageId = message.getMessageId();
+    
+        int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
 
-        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(message.deserializeRoundChangeMessage().getValue());
+        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
 
-        // needed senderId and senderMessageId ??
+        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
+
+
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
             .setConsensusInstance(consensusInstance)
             .setRound(round)
-            .setPreparedRound(instance.getPreparedRound())
-            .setPreparedValue(instance.getPreparedValue())
-            .setMessage(roundchangeMessage.toJson())       
+            .setMessage(roundchangeMessage.toJson())
+            .setReplyTo(senderId)
+            .setReplyToMessageId(senderMessageId)     
             .build();
 
         this.link.broadcast(consensusMessage);
     }
+    
 
     @Override
     public void listen() {
@@ -361,7 +400,8 @@ public class NodeService implements UDPService {
                                 case COMMIT ->
                                     uponCommit((ConsensusMessage) message);                            
                                 case ROUND_CHANGE ->
-                                    uponTimerExpired((ConsensusMessage) message);
+                                    /*uponTimerExpired((ConsensusMessage) message);*/
+                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ROUND_CHANGE message from {1}", config.getId(), message.getSenderId()));
                                 case ACK ->
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ACK message from {1}", config.getId(), message.getSenderId()));
                                 case IGNORE ->

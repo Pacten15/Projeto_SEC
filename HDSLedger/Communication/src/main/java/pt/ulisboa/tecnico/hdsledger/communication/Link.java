@@ -227,8 +227,6 @@ public class Link {
                     }
                 }
 
-                System.out.println("Sending message: " + message);
-
                 byte[] buf = message.getBytes();
                 DatagramPacket packet = new DatagramPacket(buf, buf.length, hostname, port);
                 socket.send(packet);
@@ -266,8 +264,22 @@ public class Link {
 
             //Get message from the serialized signature message
             signatureMessage = new Gson().fromJson(serialized, SignatureMessage.class);
-            System.out.println("Received message: " + signatureMessage.getMessage());
             message = new Gson().fromJson(signatureMessage.getMessage(), Message.class);
+
+            //Security implementation on the receiving level
+            if (!CryptoUtils.verifySignature(signatureMessage.getMessage(), signatureMessage.getSignature(), CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + message.getSenderId() + ".key"))) {
+                message.setType(Message.Type.IGNORE);
+
+                LOGGER.log(Level.INFO, MessageFormat.format(
+                    "\n#######################################################################################################\n" + 
+                    "{0} - Message {1} received from {2}:{3} with senderID{4} message ID {5} - Signature verification failed\n" +
+                    "########################################################################################################\n",
+                        config.getId(), message.getType(), response.getAddress(), response.getPort(),message.getSenderId(), message.getMessageId()));
+                
+                return message;
+            }
+            
+                
         }
 
         String senderId = message.getSenderId();
@@ -332,14 +344,6 @@ public class Link {
             unreliableSend(address, port, responseMessage);
         }
 
-        if(signatureMessage == null)
-            return message;
-
-        // Security implementation on the receiving level
-        //If a message received is signed, it is verified
-        if(signatureMessage != null && CryptoUtils.verifySignature(signatureMessage.getMessage(), signatureMessage.getSignature(), CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + senderId + ".key")))
-            return message;
-        else
-            throw new HDSSException(ErrorMessage.SignatureError);
+        return message;
     }
 }

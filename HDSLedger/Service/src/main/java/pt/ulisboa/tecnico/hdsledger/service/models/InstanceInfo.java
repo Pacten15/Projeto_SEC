@@ -3,9 +3,6 @@ package pt.ulisboa.tecnico.hdsledger.service.models;
 
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 
-import java.text.MessageFormat;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class InstanceInfo {
 
@@ -17,12 +14,6 @@ public class InstanceInfo {
 
     private CommitMessage commitMessage;
     private int committedRound = -1;
-    // Timer used to trigger a round change
-    private TimerState timerState;
-
-    public enum TimerState {
-        RUNNING, EXPIRED;
-    }
 
     public InstanceInfo(String inputValue) {
         this.inputValue = inputValue;
@@ -76,19 +67,5 @@ public class InstanceInfo {
         this.commitMessage = commitMessage;
     }
 
-    public TimerState getTimerState() {
-        return timerState;
-    }
-
-    public void setTimer(TimerState timerState, int currentRound) {
-        if(timerState == TimerState.RUNNING) 
-        {
-            Timer timer = new Timer();
-            timer.schedule(new TimerTask() {
-                @Override
-                public void run() { }
-            }, 0, (long)Math.exp(currentRound));
-            this.timerState = TimerState.EXPIRED;
-        }
-    }
+    
 }
