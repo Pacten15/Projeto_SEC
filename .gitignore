@@ -400,5 +400,10 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
+# keys are generated each time the project is built and are unique to the build
+.key
+
+
 # End of https://www.toptal.com/developers/gitignore/api/maven,vs,java
 .vscode/launch.json
+
