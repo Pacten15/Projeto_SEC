@@ -381,7 +381,7 @@ public class NodeService implements UDPService {
         int consensusInstance = messages.get(0).getConsensusInstance();
         //int round = message.getRound();
         int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
-        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();  m m
+        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
 
         // Get current round
         int currentRound = this.instanceInfo.get(consensusInstance).getCurrentRound();
