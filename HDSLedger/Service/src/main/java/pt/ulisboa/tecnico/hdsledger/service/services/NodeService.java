@@ -381,9 +381,7 @@ public class NodeService implements UDPService {
         int consensusInstance = messages.get(0).getConsensusInstance();
         //int round = message.getRound();
         int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
-        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
-        //String senderId = message.getSenderId();
-        //int senderMessageId = message.getMessageId();
+        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();  m m
 
         // Get current round
         int currentRound = this.instanceInfo.get(consensusInstance).getCurrentRound();
@@ -407,9 +405,7 @@ public class NodeService implements UDPService {
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
             .setConsensusInstance(consensusInstance)
             .setRound(lowestRound)
-            .setMessage(roundchangeMessage.toJson())
-            .setReplyTo(senderId)
-            .setReplyToMessageId(senderMessageId)     
+            .setMessage(roundchangeMessage.toJson())    
             .build();
 
         this.link.broadcast(consensusMessage);
