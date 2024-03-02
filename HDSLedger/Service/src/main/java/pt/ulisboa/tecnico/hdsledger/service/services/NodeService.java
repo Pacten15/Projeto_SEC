@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -181,8 +182,6 @@ public class NodeService implements UDPService {
 
         PrepareMessage prepareMessage = new PrepareMessage(prePrepareMessage.getValue());
 
-
-
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.PREPARE)
             .setConsensusInstance(consensusInstance)
             .setRound(round)
@@ -358,19 +357,56 @@ public class NodeService implements UDPService {
     {
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound() + 1;
+        int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
+        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
-    
-        int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
-
-        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
 
         RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
-
 
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
             .setConsensusInstance(consensusInstance)
             .setRound(round)
+            .setMessage(roundchangeMessage.toJson())
+            .setReplyTo(senderId)
+            .setReplyToMessageId(senderMessageId)     
+            .build();
+
+        this.link.broadcast(consensusMessage);
+    }
+
+    public synchronized void uponRoundChange(List<ConsensusMessage> messages) 
+    {
+        // Not sure if correct, but since we only have 1 consensus running I can get it from the first message
+        int consensusInstance = messages.get(0).getConsensusInstance();
+        //int round = message.getRound();
+        int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
+        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
+        //String senderId = message.getSenderId();
+        //int senderMessageId = message.getMessageId();
+
+        // Get current round
+        int currentRound = this.instanceInfo.get(consensusInstance).getCurrentRound();
+        // Find lowest round
+        int lowestRound = 0;
+        for (ConsensusMessage consensusMessage : messages) {
+            // Messages must have a round number superior to the current round
+            if(consensusMessage.getRound() < currentRound) 
+            {
+                //WE CAN ADD A LOG HERE
+                return;
+            }
+            if(consensusMessage.getRound() < lowestRound) 
+            {
+                lowestRound = consensusMessage.getRound(); 
+            }
+        }
+
+        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
+
+        ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
+            .setConsensusInstance(consensusInstance)
+            .setRound(lowestRound)
             .setMessage(roundchangeMessage.toJson())
             .setReplyTo(senderId)
             .setReplyToMessageId(senderMessageId)     
