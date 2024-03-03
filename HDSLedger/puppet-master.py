@@ -12,13 +12,20 @@ terminal = "kitty"
 # Blockchain node configuration file name
 server_configs = [
     "regular_config.json",
+    "non_responsive_ibft_works_config.json",
+    "non_responsive_ibft_fails_config.json",
+    "fake_leader_config.json"
 ]
 
 
-server_config = server_configs[0]
+server_config = server_configs[3]
 
 def quit_handler(*args):
+
+    os.system(f"{terminal} sh -c \"cd Security/keys; rm -r *.key'; sleep 1\"")
+
     os.system(f"pkill -i {terminal}")
+    
     sys.exit()
 
 
@@ -42,6 +49,4 @@ while True:
     print("Type quit to quit")
     command = input(">> ")
     if command.strip() == "quit":
-        os.system(
-            f"{terminal} sh -c \"cd Security/keys; rm -r *.key'; sleep 1\"")
         quit_handler()

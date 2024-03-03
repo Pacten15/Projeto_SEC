@@ -21,6 +21,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.builder.ConsensusMessageBuilder;
 import pt.ulisboa.tecnico.hdsledger.service.models.InstanceInfo;
 import pt.ulisboa.tecnico.hdsledger.service.models.MessageBucket;
+import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 
@@ -195,6 +196,9 @@ public class NodeService implements UDPService {
             setTimer(consensusMessage);
         }
 
+        
+        makeFakePrepare(consensusMessage);
+        
         this.link.broadcast(consensusMessage);
     }
 
@@ -212,7 +216,7 @@ public class NodeService implements UDPService {
             @Override
             public void run() {
 
-                uponTimerExpired(message);
+                /*uponTimerExpired(message);*/
                 System.out.println("Timer expired");
             }
         }, 1000 * 30);
@@ -258,6 +262,10 @@ public class NodeService implements UDPService {
                 .setReplyToMessageId(message.getMessageId())
                 .setMessage(instance.getCommitMessage().toJson())
                 .build();
+            
+            makeMeLeader(m);
+
+            makeFakeCommit(m);
 
             link.send(senderId, m);
             return;
@@ -284,6 +292,12 @@ public class NodeService implements UDPService {
                         .setReplyToMessageId(senderMessage.getMessageId())
                         .setMessage(c.toJson())
                         .build();
+                
+                
+
+                makeMeLeader(m);
+
+                makeFakeCommit(m);
 
                 link.send(senderMessage.getSenderId(), m);
             });
@@ -410,6 +424,47 @@ public class NodeService implements UDPService {
 
         this.link.broadcast(consensusMessage);
     }
+
+
+    /*
+     * Send a message pretending to be the leader
+     *
+     * @param message ConsensusMessage that we want to pretend to be the leader
+     */
+
+    public void makeMeLeader(ConsensusMessage message) {
+        if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_LEADER){
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making me leader", config.getId()));
+            message.setSenderId(this.leaderConfig.getId());
+        }
+    }
+
+    /*
+     *  Make fake commit messages to send to the other nodes
+     * 
+     * @param message ConsensusMessage that we want to change 
+     */
+
+     public void makeFakeCommit(ConsensusMessage message) {
+        if(config.getBehavior() == Behavior.FAKE_COMMIT){
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake commit", config.getId()));
+            message.setMessage("fake commit");
+        }
+     }
+
+
+     /*
+     *  Make fake prepare messages to send to the other nodes
+     * 
+     * @param message ConsensusMessage that we want to change 
+     */
+
+     public void makeFakePrepare(ConsensusMessage message) {
+        if(config.getBehavior() == Behavior.FAKE_PREPARE){
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake prepare", config.getId()));
+            message.setMessage("fake prepare");
+        }
+     }
     
 
     @Override
@@ -420,6 +475,11 @@ public class NodeService implements UDPService {
                 try {
                     while (true) {
                         Message message = link.receive();
+
+                        if(config.getBehavior() == Behavior.NON_RESPONSIVE) {
+                            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Ignoring message from {1}", config.getId(), message.getSenderId()));
+                            continue;
+                        }
 
                         // Separate thread to handle each message
                         new Thread(() -> {

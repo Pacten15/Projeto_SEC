@@ -1,7 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.utilities;
 
 
-public enum Behaviour {
+public enum Behavior {
     //Behaves Normal
     NORMAL("NORMAL"),
     //The process ignores all the messages received
@@ -24,9 +24,9 @@ public enum Behaviour {
     NO_CLIENT("NO_CLIENT");
     
 
-    private final String behaviour;
+    String behavior;
 
-    Behaviour(String command) {
-        this.behaviour = command;
+    Behavior(String command) {
+        this.behavior = command;
     }
 }

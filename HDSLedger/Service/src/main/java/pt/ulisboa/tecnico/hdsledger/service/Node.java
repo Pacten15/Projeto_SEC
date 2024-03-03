@@ -4,6 +4,7 @@ import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
+import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
@@ -26,6 +27,8 @@ public class Node {
             String id = args[0];
             nodesConfigPath += args[1];
 
+
+
             // Generate key pair to each server
             CryptoUtils.createKeyPair(4096, "../Security/keys/public_key_server_" + id + ".key" , "../Security/keys/private_key_server_" + id + ".key");
             
@@ -34,8 +37,10 @@ public class Node {
             ProcessConfig leaderConfig = Arrays.stream(nodeConfigs).filter(ProcessConfig::isLeader).findAny().get();
             ProcessConfig nodeConfig = Arrays.stream(nodeConfigs).filter(c -> c.getId().equals(id)).findAny().get();
 
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Running at {1}:{2}; is leader: {3}",
-                    nodeConfig.getId(), nodeConfig.getHostname(), nodeConfig.getPort(), nodeConfig.isLeader()));
+
+
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Running at {1}:{2}; behavior: {3}; is leader: {4}",
+                    nodeConfig.getId(), nodeConfig.getHostname(), nodeConfig.getPort(), nodeConfig.getBehavior(),nodeConfig.isLeader()));
 
             // Abstraction to send and receive messages
             Link linkToNodes = new Link(nodeConfig, nodeConfig.getPort(), nodeConfigs, ConsensusMessage.class);
@@ -45,7 +50,10 @@ public class Node {
             
             nodeService.listen();
 
-            nodeService.startConsensus("a");
+            if (leaderConfig.getBehavior() == Behavior.NO_CLIENT) {
+                LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
+                nodeService.startConsensus("fake value");
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
