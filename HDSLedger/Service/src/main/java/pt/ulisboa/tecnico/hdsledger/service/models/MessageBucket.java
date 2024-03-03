@@ -10,6 +10,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
+import java.util.Optional;
 
 public class MessageBucket {
 
@@ -34,7 +35,6 @@ public class MessageBucket {
     public void addMessage(ConsensusMessage message) {
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
-
         bucket.putIfAbsent(consensusInstance, new ConcurrentHashMap<>());
         bucket.get(consensusInstance).putIfAbsent(round, new ConcurrentHashMap<>());
         bucket.get(consensusInstance).get(round).put(message.getSenderId(), message);
@@ -48,6 +48,8 @@ public class MessageBucket {
             String value = prepareMessage.getValue();
             frequency.put(value, frequency.getOrDefault(value, 0) + 1);
         });
+
+       
 
         // Only one value (if any, thus the optional) will have a frequency
         // greater than or equal to the quorum size
@@ -85,11 +87,11 @@ public class MessageBucket {
             String value = roundChangeMessage.getPreparedValue();
             frequency.put(value, frequency.getOrDefault(value, 0) + 1);
         });
-
+        
         // Only one value (if any, thus the optional) will have a frequency
         // greater than or equal to the quorum size
         return frequency.entrySet().stream().filter((Map.Entry<String, Integer> entry) -> {
-            return entry.getValue() >= quorumSize;
+            return entry.getKey() != null && entry.getValue() >= quorumSize;
         }).map((Map.Entry<String, Integer> entry) -> {
             return entry.getKey();
         }).findFirst();
@@ -118,6 +120,7 @@ public class MessageBucket {
 
         return helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
     }
+
 
     public boolean JustifyRoundChangeJ1(int instance, int round) 
     {     
