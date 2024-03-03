@@ -48,6 +48,8 @@ public class NodeService implements UDPService {
     private final MessageBucket prepareMessages;
     // Consensus instance -> Round -> List of commit messages
     private final MessageBucket commitMessages;
+    // Consensus instance -> Round -> List of round change messages
+    private final MessageBucket roundChangeMessages;
 
     // Store if already received pre-prepare for a given <consensus, round>
     private final Map<Integer, Map<Integer, Boolean>> receivedPrePrepare = new ConcurrentHashMap<>();
@@ -77,6 +79,7 @@ public class NodeService implements UDPService {
 
         this.prepareMessages = new MessageBucket(nodesConfig.length);
         this.commitMessages = new MessageBucket(nodesConfig.length);
+        this.roundChangeMessages = new MessageBucket(nodesConfig.length);
     }
 
     public ProcessConfig getConfig() {
@@ -160,7 +163,6 @@ public class NodeService implements UDPService {
         int senderMessageId = message.getMessageId();
 
         PrePrepareMessage prePrepareMessage = message.deserializePrePrepareMessage();
-
         String value = prePrepareMessage.getValue();
 
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message from {1} Consensus Instance {2}, Round {3}",
@@ -202,12 +204,11 @@ public class NodeService implements UDPService {
         this.link.broadcast(consensusMessage);
     }
 
-     /*
-     * Initiates a timer and executes the round change message if it expires
-     *
-     * @param message Message to be handled
-     */
-
+    /*
+    * Initiates a timer and executes the round change message if it expires
+    *
+    * @param message Message to be handled
+    */
     public synchronized void setTimer(ConsensusMessage message) {
         //Set the timer for the non-leader nodes
         timer = new Timer();
@@ -251,7 +252,8 @@ public class NodeService implements UDPService {
         // for any round r
         // Late prepare (consensus already ended for other nodes) only reply to him (as
         // an ACK)
-        if (instance.getPreparedRound() >= round) {
+        if (instance.getPreparedRound() >= round) 
+        {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Already received PREPARE message for Consensus Instance {1}, Round {2}, "
                 + "replying again to make sure it reaches the initial sender", config.getId(), consensusInstance, round));
 
@@ -273,7 +275,8 @@ public class NodeService implements UDPService {
 
         // Find value with valid quorum
         Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), consensusInstance, round);
-        if (preparedValue.isPresent() && instance.getPreparedRound() < round) {
+        if (preparedValue.isPresent() && instance.getPreparedRound() < round) 
+        {
             instance.setPreparedValue(preparedValue.get());
             instance.setPreparedRound(round);
 
@@ -365,14 +368,15 @@ public class NodeService implements UDPService {
         }
     }
 
-    
-
     public synchronized void uponTimerExpired(ConsensusMessage message) 
     {
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound() + 1;
-        int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
-        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
+
+        InstanceInfo instance = this.instanceInfo.get(consensusInstance);
+        int preparedRound = instance.getPreparedRound();
+        String preparedValue = instance.getPreparedValue();
+
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
 
@@ -389,51 +393,93 @@ public class NodeService implements UDPService {
         this.link.broadcast(consensusMessage);
     }
 
-    public synchronized void uponRoundChange(List<ConsensusMessage> messages) 
+    public synchronized void uponRoundChange(ConsensusMessage message) 
     {
-        // Not sure if correct, but since we only have 1 consensus running I can get it from the first message
-        int consensusInstance = messages.get(0).getConsensusInstance();
+        int consensusInstance = message.getConsensusInstance();
+        // In debug we can get if it can be here
         //int round = message.getRound();
-        int preparedRound = this.instanceInfo.get(consensusInstance).getPreparedRound();
-        String preparedValue = this.instanceInfo.get(consensusInstance).getPreparedValue();
 
-        // Get current round
-        int currentRound = this.instanceInfo.get(consensusInstance).getCurrentRound();
-        // Find lowest round
+        InstanceInfo instance = this.instanceInfo.get(consensusInstance);
+        int preparedRound = instance.getPreparedRound();
+        String preparedValue = instance.getPreparedValue();
+
+        String senderId = message.getSenderId();
+        int senderMessageId = message.getMessageId();
+
+        this.roundChangeMessages.addMessage(message);
+ 
+        int currentRound = instance.getCurrentRound();
         int lowestRound = 0;
-        for (ConsensusMessage consensusMessage : messages) {
-            // Messages must have a round number superior to the current round
-            if(consensusMessage.getRound() < currentRound) 
+        if(roundChangeMessages.getMessages(consensusInstance, currentRound).values().size() > 0) 
+        {
+            // Second Upon logic   
+            for (ConsensusMessage consensusMessage : roundChangeMessages.getMessages(consensusInstance, currentRound).values()) 
             {
-                //WE CAN ADD A LOG HERE
-                return;
+                // Messages must have a round number superior to the current round
+                if(consensusMessage.getRound() < currentRound) 
+                {
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Message round number {1} must be superior to the current round to progress {2} " 
+                        + "from {3}: Consensus Instance {4}, Round {5}", config.getId(), consensusMessage.getRound(), 
+                        currentRound, message.getSenderId(), consensusInstance, currentRound));
+                    return;
+                }
+                if(consensusMessage.getRound() < lowestRound) 
+                {
+                    lowestRound = consensusMessage.getRound(); 
+                }
             }
-            if(consensusMessage.getRound() < lowestRound) 
-            {
-                lowestRound = consensusMessage.getRound(); 
-            }
+
+            ///TODO: SET Timer running left here
+            RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
+            ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
+                .setConsensusInstance(consensusInstance)
+                .setRound(lowestRound)
+                .setMessage(roundchangeMessage.toJson())    
+                .build();
+
+            this.link.broadcast(consensusMessage);
         }
 
-        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
+        // Third Upon logic
+        // Find value with valid quorum
+        Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), consensusInstance, currentRound);
+        if (pV.isPresent() && instance.getRoundChangeRound() < currentRound) 
+        {
+            ///TODO: Falta a união do lider com a JustifyRoundChange
+            if (!isLeader(senderId)) return;
 
-        ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
-            .setConsensusInstance(consensusInstance)
-            .setRound(lowestRound)
-            .setMessage(roundchangeMessage.toJson())    
-            .build();
+            String value;
+            if(roundChangeMessages.HighestPrepared(consensusInstance, currentRound) != null) 
+            {
+                value = roundChangeMessages.HighestPrepared(consensusInstance, currentRound).getValue();
+            }
+            else
+            {
+                value = instance.getInputValue();
+            }
 
-        this.link.broadcast(consensusMessage);
+            PrepareMessage prepareMessage = new PrepareMessage(value);
+            ConsensusMessage m = new ConsensusMessageBuilder(config.getId(), Message.Type.PRE_PREPARE)
+                .setConsensusInstance(consensusInstance)
+                .setRound(currentRound)
+                .setMessage(prepareMessage.toJson())
+                .setReplyTo(senderId)
+                .setReplyToMessageId(senderMessageId)     
+                .build();
+
+            this.link.broadcast(m);
+        }
     }
-
 
     /*
      * Send a message pretending to be the leader
      *
      * @param message ConsensusMessage that we want to pretend to be the leader
      */
-
-    public void makeMeLeader(ConsensusMessage message) {
-        if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_LEADER){
+    public void makeMeLeader(ConsensusMessage message) 
+    {
+        if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_LEADER)
+        {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making me leader", config.getId()));
             message.setSenderId(this.leaderConfig.getId());
         }
@@ -444,45 +490,51 @@ public class NodeService implements UDPService {
      * 
      * @param message ConsensusMessage that we want to change 
      */
-
-     public void makeFakeCommit(ConsensusMessage message) {
-        if(config.getBehavior() == Behavior.FAKE_COMMIT){
+    public void makeFakeCommit(ConsensusMessage message) 
+    {
+        if(config.getBehavior() == Behavior.FAKE_COMMIT)
+        {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake commit", config.getId()));
             message.setMessage("fake commit");
         }
-     }
+    }
 
-
-     /*
+    /*
      *  Make fake prepare messages to send to the other nodes
      * 
      * @param message ConsensusMessage that we want to change 
      */
-
-     public void makeFakePrepare(ConsensusMessage message) {
-        if(config.getBehavior() == Behavior.FAKE_PREPARE){
+    public void makeFakePrepare(ConsensusMessage message)
+    {
+        if(config.getBehavior() == Behavior.FAKE_PREPARE)
+        {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake prepare", config.getId()));
             message.setMessage("fake prepare");
         }
-     }
+    }
     
 
     @Override
-    public void listen() {
+    public void listen() 
+    {
         try {
             // Thread to listen on every request
-            new Thread(() -> {
+            new Thread(() -> 
+            {
                 try {
-                    while (true) {
+                    while (true) 
+                    {
                         Message message = link.receive();
 
-                        if(config.getBehavior() == Behavior.NON_RESPONSIVE) {
+                        if(config.getBehavior() == Behavior.NON_RESPONSIVE) 
+                        {
                             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Ignoring message from {1}", config.getId(), message.getSenderId()));
                             continue;
                         }
 
                         // Separate thread to handle each message
-                        new Thread(() -> {
+                        new Thread(() -> 
+                        {
                             switch (message.getType()) 
                             {
                                 case PRE_PREPARE ->

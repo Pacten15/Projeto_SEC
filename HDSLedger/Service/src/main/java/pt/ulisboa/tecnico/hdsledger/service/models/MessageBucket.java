@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
+import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 
 public class MessageBucket {
@@ -75,7 +76,46 @@ public class MessageBucket {
         }).findFirst();
     }
 
+    public Optional<String> hasValidRoundChangeQuorum(String nodeId, int instance, int round) {
+        // Create mapping of value to frequency
+        HashMap<String, Integer> frequency = new HashMap<>();
+        bucket.get(instance).get(round).values().forEach((message) -> 
+        {
+            RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
+            String value = roundChangeMessage.getPreparedValue();
+            frequency.put(value, frequency.getOrDefault(value, 0) + 1);
+        });
+
+        // Only one value (if any, thus the optional) will have a frequency
+        // greater than or equal to the quorum size
+        return frequency.entrySet().stream().filter((Map.Entry<String, Integer> entry) -> {
+            return entry.getValue() >= quorumSize;
+        }).map((Map.Entry<String, Integer> entry) -> {
+            return entry.getKey();
+        }).findFirst();
+    }
+
     public Map<String, ConsensusMessage> getMessages(int instance, int round) {
         return bucket.get(instance).get(round);
+    }
+
+    public Map.Entry<Integer, String> HighestPrepared(int instance, int round) 
+    {
+        Map<Integer, String> helperMap = new HashMap<>();
+
+        bucket.get(instance).get(round).values().forEach((message) -> 
+        {
+            int highestPreparedRound = 0;
+            String preparedValue = "";
+            RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
+            if(roundChangeMessage.getPreparedRound() > highestPreparedRound) 
+            {
+                highestPreparedRound = roundChangeMessage.getPreparedRound();
+                preparedValue = roundChangeMessage.getPreparedValue();
+            }
+            helperMap.put(highestPreparedRound, preparedValue);
+        });
+
+        return helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
     }
 }

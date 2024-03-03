@@ -5,7 +5,6 @@ import com.google.gson.Gson;
 public class RoundChangeMessage {
 
     private int preparedRound;
-
     private String preparedValue;
 
     public RoundChangeMessage(int prepareRound, String preparedValue) {

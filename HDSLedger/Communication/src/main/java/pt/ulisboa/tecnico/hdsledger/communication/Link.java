@@ -166,11 +166,9 @@ public class Link {
                 int sleepTime = BASE_SLEEP_TIME;
 
                 for (;;) {
-                    LOGGER.log(Level.INFO, MessageFormat.format(
-                            "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
-                            data.getType(), destAddress, destPort, messageId, count++));
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
+                        data.getType(), destAddress, destPort, messageId, count++));
                     
-
                     unreliableSend(destAddress, destPort, data);
 
                     // Wait (using exponential back-off), then look for ACK
