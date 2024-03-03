@@ -15,6 +15,10 @@ public class PrePrepareMessage {
         return value;
     }
 
+    public void setValue(String value) {
+        this.value = value;
+    }
+
     public String toJson() {
         return new Gson().toJson(this);
     }

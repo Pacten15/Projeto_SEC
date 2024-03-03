@@ -11,14 +11,14 @@
         "isLeader": false,
         "hostname": "localhost",
         "port": 3002,
-        "behavior": "FAKE_COMMIT"
+        "behavior": "NORMAL"
     },
     {
         "id": "3",
         "isLeader": false,
         "hostname": "localhost",
         "port": 3003,
-        "behavior": "NORMAL" 
+        "behavior": "FAKE_PREPARE" 
     },
     {
         "id": "4",

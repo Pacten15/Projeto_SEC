@@ -14,11 +14,15 @@ server_configs = [
     "regular_config.json",
     "non_responsive_ibft_works_config.json",
     "non_responsive_ibft_fails_config.json",
-    "fake_leader_config.json"
+    "fake_leader_C_P_config.json",
+    "fake_commit_config.json",
+    "fake_prepare_config.json",
+    "fake_leader_PP_config.json",
+    "leader_pretending_config.json"
 ]
 
 
-server_config = server_configs[3]
+server_config = server_configs[7]
 
 def quit_handler(*args):
 

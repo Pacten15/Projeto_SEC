@@ -6,8 +6,12 @@ public enum Behavior {
     NORMAL("NORMAL"),
     //The process ignores all the messages received
     NON_RESPONSIVE("NON_RESPONSIVE"),
-    //A non leader process sends a PrePREPARE message
-    FAKE_LEADER("FAKE_LEADER"),
+    //Sends prePrepare messages as a non leader
+    FAKE_LEADER_PP("FAKE_LEADER_PP"),
+    //A non leader process sends a commit and prepare messages as a leader
+    FAKE_LEADER_C_P("FAKE_LEADER_C_P"),
+    // A Leader sends prePrepare message as a non leader
+    LEADER_PRETENDING("LEADER_PRETENDING"),
     //A process sends a COMMIT message with a different value
     FAKE_COMMIT("FAKE_COMMIT"),
     //A process sends a PREPARE message with a different value

@@ -106,6 +106,9 @@ public class NodeService implements UDPService {
             .setRound(round)
             .setMessage(prePrepareMessage.toJson())
             .build();
+        
+        /*Mostrar ao prof */
+        sendMessageAsAnotherServer(consensusMessage, "2");
 
         return consensusMessage;
     }
@@ -185,6 +188,8 @@ public class NodeService implements UDPService {
 
         PrepareMessage prepareMessage = new PrepareMessage(prePrepareMessage.getValue());
 
+        makeFakePrepare(prepareMessage);
+
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.PREPARE)
             .setConsensusInstance(consensusInstance)
             .setRound(round)
@@ -197,9 +202,6 @@ public class NodeService implements UDPService {
         if (!this.config.isLeader()) {
             setTimer(consensusMessage);
         }
-
-        
-        makeFakePrepare(consensusMessage);
         
         this.link.broadcast(consensusMessage);
     }
@@ -264,10 +266,9 @@ public class NodeService implements UDPService {
                 .setReplyToMessageId(message.getMessageId())
                 .setMessage(instance.getCommitMessage().toJson())
                 .build();
-            
-            makeMeLeader(m);
-
-            makeFakeCommit(m);
+                
+                
+            makeMeLeaderCP(m);
 
             link.send(senderId, m);
             return;
@@ -286,6 +287,8 @@ public class NodeService implements UDPService {
             CommitMessage c = new CommitMessage(preparedValue.get());
             instance.setCommitMessage(c);
 
+            makeFakeCommit(c);
+
             sendersMessage.forEach(senderMessage -> 
             {
                 ConsensusMessage m = new ConsensusMessageBuilder(config.getId(), Message.Type.COMMIT)
@@ -298,9 +301,7 @@ public class NodeService implements UDPService {
                 
                 
 
-                makeMeLeader(m);
-
-                makeFakeCommit(m);
+                makeMeLeaderCP(m);
 
                 link.send(senderMessage.getSenderId(), m);
             });
@@ -476,12 +477,27 @@ public class NodeService implements UDPService {
      *
      * @param message ConsensusMessage that we want to pretend to be the leader
      */
-    public void makeMeLeader(ConsensusMessage message) 
-    {
-        if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_LEADER)
-        {
+
+    public void makeMeLeaderCP(ConsensusMessage message) {
+        if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_LEADER_C_P){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making me leader", config.getId()));
             message.setSenderId(this.leaderConfig.getId());
+        }
+    }
+
+    /*
+     * Send a message pretending to be the leader
+     *
+     * @param message ConsensusMessage that we want to pretend to be the leader and the id of the node that we want to make leader
+     */
+
+    public void sendMessageAsAnotherServer(ConsensusMessage message, String id) {
+        if( isLeader(config.getId()) && config.getBehavior() == Behavior.LEADER_PRETENDING){
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making leader the non leader", id));
+            message.setSenderId(id);
+            PrePrepareMessage prePrepareMessage = message.deserializePrePrepareMessage();
+            prePrepareMessage.setValue("accepted a value given by a non leader gotcha");
+            message.setMessage(prePrepareMessage.toJson());
         }
     }
 
@@ -490,29 +506,30 @@ public class NodeService implements UDPService {
      * 
      * @param message ConsensusMessage that we want to change 
      */
-    public void makeFakeCommit(ConsensusMessage message) 
-    {
-        if(config.getBehavior() == Behavior.FAKE_COMMIT)
-        {
+
+     public void makeFakeCommit(CommitMessage message) {
+        if(config.getBehavior() == Behavior.FAKE_COMMIT){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake commit", config.getId()));
-            message.setMessage("fake commit");
+            message.setValue("fake commit");
         }
     }
+
 
     /*
      *  Make fake prepare messages to send to the other nodes
      * 
      * @param message ConsensusMessage that we want to change 
      */
-    public void makeFakePrepare(ConsensusMessage message)
-    {
-        if(config.getBehavior() == Behavior.FAKE_PREPARE)
-        {
+
+     public void makeFakePrepare(PrepareMessage message) {
+        if(config.getBehavior() == Behavior.FAKE_PREPARE){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake prepare", config.getId()));
-            message.setMessage("fake prepare");
+            message.setValue("fake prepare");
+            
         }
     }
-    
+
+
 
     @Override
     public void listen() 

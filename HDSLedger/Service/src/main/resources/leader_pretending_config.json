@@ -4,14 +4,14 @@
         "isLeader": true,
         "hostname": "localhost",
         "port": 3001,
-        "behavior": "NO_CLIENT"
+        "behavior": "LEADER_PRETENDING"
     },
     {
         "id": "2",
         "isLeader": false,
         "hostname": "localhost",
         "port": 3002,
-        "behavior": "FAKE_COMMIT"
+        "behavior": "NORMAL"
     },
     {
         "id": "3",

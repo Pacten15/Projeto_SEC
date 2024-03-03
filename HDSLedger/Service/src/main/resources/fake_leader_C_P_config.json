@@ -4,7 +4,7 @@
         "isLeader": true,
         "hostname": "localhost",
         "port": 3001,
-        "behavior": "NORMAL"
+        "behavior": "NO_CLIENT"
     },
     {
         "id": "2",
@@ -18,7 +18,7 @@
         "isLeader": false,
         "hostname": "localhost",
         "port": 3003,
-        "behavior": "FAKE_LEADER" 
+        "behavior": "FAKE_LEADER_C_P" 
     },
     {
         "id": "4",

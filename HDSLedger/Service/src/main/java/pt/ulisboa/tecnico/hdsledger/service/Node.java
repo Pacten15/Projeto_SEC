@@ -50,7 +50,7 @@ public class Node {
             
             nodeService.listen();
 
-            if (leaderConfig.getBehavior() == Behavior.NO_CLIENT) {
+            if (leaderConfig.getBehavior() == Behavior.NO_CLIENT || leaderConfig.getBehavior() == Behavior.LEADER_PRETENDING){
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
                 nodeService.startConsensus("fake value");
             }
