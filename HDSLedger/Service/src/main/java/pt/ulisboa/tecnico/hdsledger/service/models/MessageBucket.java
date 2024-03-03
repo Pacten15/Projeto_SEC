@@ -118,4 +118,20 @@ public class MessageBucket {
 
         return helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
     }
+
+    public boolean JustifyRoundChangeJ1(int instance, int round) 
+    {     
+        if(bucket.size() == 0) return false;
+
+        for (ConsensusMessage message : bucket.get(instance).get(round).values()) 
+        {
+            RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
+            //Every round change message in the quorum must have prepared round and prepared value equal to null
+            if(roundChangeMessage.getPreparedRound() != 0 && roundChangeMessage.getPreparedValue() != null) 
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 }

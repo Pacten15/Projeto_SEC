@@ -397,7 +397,7 @@ public class NodeService implements UDPService {
     public synchronized void uponRoundChange(ConsensusMessage message) 
     {
         int consensusInstance = message.getConsensusInstance();
-        // In debug we can get if it can be here
+        //In debug we can get if it can be here
         //int round = message.getRound();
 
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
@@ -471,6 +471,23 @@ public class NodeService implements UDPService {
             this.link.broadcast(m);
         }
     }
+
+    public boolean JustifyRoundChange(int instance, int round) 
+    {
+        boolean justified = false;
+
+        InstanceInfo instanceInfo = this.instanceInfo.get(instance);
+        //J2
+        // A justificação tem uma quorum prepare message válida tal que  
+        // a round-change message é a message com a highest prepared round diferente do vazio no quorum
+        Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), instance, round);
+        if (preparedValue.isPresent() && instanceInfo.getRoundChangeRound() < round) 
+        {
+            String value = roundChangeMessages.HighestPrepared(instance, round).getValue();
+            if (preparedValue.toString() == value) justified = true;
+        }
+        return justified;
+    } 
 
     /*
      * Send a message pretending to be the leader
