@@ -62,7 +62,7 @@ public class NodeService implements UDPService {
 
 
     //Timer used by the non-leader nodes to send round change messages in case it expires 
-    private Timer timer;
+    private Timer timer = new Timer();
 
 
 
@@ -211,9 +211,8 @@ public class NodeService implements UDPService {
     *
     * @param message Message to be handled
     */
-    public synchronized void setTimer(ConsensusMessage message) {
+    public void setTimer(ConsensusMessage message) {
         //Set the timer for the non-leader nodes
-        timer = new Timer();
         System.out.println("Timer has initiated");
         timer.schedule(new TimerTask() {
             @Override
@@ -222,7 +221,7 @@ public class NodeService implements UDPService {
                 uponTimerExpired(message);
                 System.out.println("Timer expired");
             }
-        }, 200);
+        }, 100 * 400);
     }
 
     /*
@@ -269,6 +268,7 @@ public class NodeService implements UDPService {
                 
                 
             makeMeLeaderCP(m);
+
 
             link.send(senderId, m);
             return;
@@ -366,6 +366,9 @@ public class NodeService implements UDPService {
 
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                 config.getId(), consensusInstance, round, true));
+
+            //reset timer
+            timer.cancel();
         }
     }
 
@@ -445,6 +448,7 @@ public class NodeService implements UDPService {
             }
 
             ///TODO: SET Timer running left here
+            timer.cancel();
             RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
             ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
                 .setConsensusInstance(consensusInstance)
@@ -596,6 +600,7 @@ public class NodeService implements UDPService {
                             continue;
                         }
 
+                        
                         // Separate thread to handle each message
                         new Thread(() -> 
                         {
