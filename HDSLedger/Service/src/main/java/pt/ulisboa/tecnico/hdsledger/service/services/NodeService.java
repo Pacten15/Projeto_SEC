@@ -171,8 +171,8 @@ public class NodeService implements UDPService {
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message from {1} Consensus Instance {2}, Round {3}",
             config.getId(), senderId, consensusInstance, round));
 
-        // Verify if pre-prepare was sent by leader
-        if (!isLeader(senderId)) return;
+        // Verify if pre-prepare was sent by leader and is justified
+        if (!isLeader(senderId) && !JustifyPrePrepare(message)) return;
 
         // Set instance value
         this.instanceInfo.putIfAbsent(consensusInstance, new InstanceInfo(value));
@@ -402,12 +402,7 @@ public class NodeService implements UDPService {
     public synchronized void uponRoundChange(ConsensusMessage message) 
     {
         int consensusInstance = message.getConsensusInstance();
-        // In debug we can get if it can be here
         int round = message.getRound();
-
-        
-        //In debug we can get if it can be here
-        //int round = message.getRound();
 
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
         int preparedRound = instance.getPreparedRound();
@@ -418,9 +413,7 @@ public class NodeService implements UDPService {
 
         roundChangeMessages.addMessage(message);
 
-
         System.out.println("Dealing with Round Change");
-
         System.out.println("round: " + round);
  
         int currentRound = instance.getCurrentRound();
@@ -428,7 +421,6 @@ public class NodeService implements UDPService {
         int lowestRound = 0;
         if(roundChangeMessages.getMessages(consensusInstance, round).values().size() > 0) 
         {
-
             System.out.println("Received set of round change messages");
             // Second Upon logic   
             for (ConsensusMessage consensusMessage : roundChangeMessages.getMessages(consensusInstance, round).values()) 
@@ -464,8 +456,8 @@ public class NodeService implements UDPService {
         Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), consensusInstance, round);
         if (pV.isPresent() && instance.getRoundChangeRound() < round) 
         {
-            ///TODO: Falta a união do lider com a JustifyRoundChange
-            if (!isLeader(senderId)) return;
+            //If is not leader and RoundChange is not justified return
+            if (!isLeader(senderId) && !JustifyRoundChange(consensusInstance, lowestRound)) return;
 
             System.out.println("Received a quarum of round change messages");
 
@@ -494,27 +486,60 @@ public class NodeService implements UDPService {
 
     public boolean JustifyRoundChange(int instance, int round) 
     {
-        boolean justified = false;
+        // A correct process considers a quorum of round-change message to be justified if one of the conditions (J1, J2) is true
+        if(this.roundChangeMessages.JustifyRoundChangeJ1(instance, round)) return true;
+        if(JustifyRoundChangeJ2(instance, round)) return true;
 
+        return false;
+    } 
+
+    public boolean JustifyRoundChangeJ2(int instance, int round) 
+    {
         InstanceInfo instanceInfo = this.instanceInfo.get(instance);
-        //J2
         // A justificação tem uma quorum prepare message válida tal que  
         // a round-change message é a message com a highest prepared round diferente do vazio no quorum
         Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), instance, round);
         if (preparedValue.isPresent() && instanceInfo.getRoundChangeRound() < round) 
         {
             String value = roundChangeMessages.HighestPrepared(instance, round).getValue();
-            if (preparedValue.toString() == value) justified = true;
+            if (preparedValue.toString() == value) return true;
         }
-        return justified;
-    } 
+        return false;
+    }
+
+    public boolean JustifyPrePrepare(ConsensusMessage message) 
+    {  
+        int consensusInstance = message.getConsensusInstance();
+        int round = message.getRound();
+        if (round == 1) return true;
+
+        if (round > 1)  
+        {
+            InstanceInfo instance = this.instanceInfo.get(consensusInstance);
+            Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), consensusInstance, round);
+            if (pV.isPresent() && instance.getRoundChangeRound() < round) 
+            {
+                if(this.roundChangeMessages.JustifyRoundChangeJ1(consensusInstance, round) || JustifyRoundChangeJ2(consensusInstance, round)) 
+                {
+                    if(JustifyRoundChangeJ2(consensusInstance, round)) 
+                    {
+                        ///TODO: I commented this because in the J2 we have this condition, but we can confirm this with DEBUG!!!
+                        //String value = roundChangeMessages.HighestPrepared(consensusInstance, round).getValue();
+                        instance.setInputValue(pV.toString());
+                        return true;
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;  
+    }
 
     /*
      * Send a message pretending to be the leader
      *
      * @param message ConsensusMessage that we want to pretend to be the leader
      */
-
     public void makeMeLeaderCP(ConsensusMessage message) {
         if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_LEADER_C_P){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making me leader", config.getId()));
@@ -527,7 +552,6 @@ public class NodeService implements UDPService {
      *
      * @param message ConsensusMessage that we want to pretend to be the leader and the id of the node that we want to make leader
      */
-
     public void sendMessageAsAnotherServer(ConsensusMessage message, String id) {
         if( isLeader(config.getId()) && config.getBehavior() == Behavior.LEADER_PRETENDING){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making leader the non leader", id));
@@ -543,7 +567,6 @@ public class NodeService implements UDPService {
      * 
      * @param message ConsensusMessage that we want to change 
      */
-
      public void makeFakeCommit(CommitMessage message) {
         if(config.getBehavior() == Behavior.FAKE_COMMIT){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake commit", config.getId()));
@@ -551,13 +574,11 @@ public class NodeService implements UDPService {
         }
     }
 
-
     /*
      *  Make fake prepare messages to send to the other nodes
      * 
      * @param message ConsensusMessage that we want to change 
      */
-
      public void makeFakePrepare(PrepareMessage message) {
         if(config.getBehavior() == Behavior.FAKE_PREPARE){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake prepare", config.getId()));
@@ -571,7 +592,6 @@ public class NodeService implements UDPService {
      * 
      * @param message ConsensusMessage that we want to change 
      */
-
     public void sendFakePrePrepareMessage(ConsensusMessage message) {
         if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_PRE_PREPARE){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Fake pre prepare message", config.getId()));
@@ -579,8 +599,6 @@ public class NodeService implements UDPService {
             message.setSenderId(this.leaderConfig.getId());
         }
     }
-
-
 
     @Override
     public void listen() 
@@ -599,8 +617,7 @@ public class NodeService implements UDPService {
                             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Ignoring message from {1}", config.getId(), message.getSenderId()));
                             continue;
                         }
-
-                        
+                   
                         // Separate thread to handle each message
                         new Thread(() -> 
                         {
