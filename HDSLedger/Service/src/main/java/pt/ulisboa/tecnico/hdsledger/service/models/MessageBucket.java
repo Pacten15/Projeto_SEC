@@ -10,7 +10,6 @@ import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
-import java.util.Optional;
 
 public class MessageBucket {
 
@@ -48,8 +47,6 @@ public class MessageBucket {
             String value = prepareMessage.getValue();
             frequency.put(value, frequency.getOrDefault(value, 0) + 1);
         });
-
-       
 
         // Only one value (if any, thus the optional) will have a frequency
         // greater than or equal to the quorum size
@@ -120,7 +117,6 @@ public class MessageBucket {
 
         return helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
     }
-
 
     public boolean JustifyRoundChangeJ1(int instance, int round) 
     {     

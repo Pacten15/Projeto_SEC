@@ -401,10 +401,12 @@ public class NodeService implements UDPService {
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
 
-        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
-
+        //reset timer
+        timer.cancel();
+        timer = new Timer();
+        ///TODO: REMOVE this print after 
         System.out.println("Timer expired, sending round change message to all nodes");
-
+        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
             .setConsensusInstance(consensusInstance)
             .setRound(round)
@@ -456,9 +458,9 @@ public class NodeService implements UDPService {
                 }
             }
 
-            ///TODO: SET Timer running left here
             timer.cancel();
             timer = new Timer();
+
             RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
             ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
                 .setConsensusInstance(consensusInstance)
