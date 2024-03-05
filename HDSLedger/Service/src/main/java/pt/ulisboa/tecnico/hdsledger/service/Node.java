@@ -1,8 +1,10 @@
 package pt.ulisboa.tecnico.hdsledger.service;
 
 import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
+import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
+import pt.ulisboa.tecnico.hdsledger.service.services.ClientService;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
@@ -19,6 +21,7 @@ public class Node {
     private static final CustomLogger LOGGER = new CustomLogger(Node.class.getName());
     // Hardcoded path to files
     private static String nodesConfigPath = "src/main/resources/";
+    private static String clientsConfigPath = "../Client/src/main/resources/regular_config.json";
 
     public static void main(String[] args) {
 
@@ -34,6 +37,7 @@ public class Node {
             
             // Create configuration instances
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);
+            ProcessConfig[] clientConfigs = new ProcessConfigBuilder().fromFile(clientsConfigPath);
             ProcessConfig leaderConfig = Arrays.stream(nodeConfigs).filter(ProcessConfig::isLeader).findAny().get();
             ProcessConfig nodeConfig = Arrays.stream(nodeConfigs).filter(c -> c.getId().equals(id)).findAny().get();
 
@@ -44,15 +48,18 @@ public class Node {
 
             // Abstraction to send and receive messages
             Link linkToNodes = new Link(nodeConfig, nodeConfig.getPort(), nodeConfigs, ConsensusMessage.class);
+            Link linkToClients = new Link(nodeConfig, nodeConfig.getClientPort(), clientConfigs, AppendMessage.class);
 
             // Services that implement listen from UDPService
-            NodeService nodeService = new NodeService(linkToNodes, nodeConfig, leaderConfig, nodeConfigs);
-            
+            NodeService nodeService = new NodeService(linkToNodes, linkToClients, nodeConfig, leaderConfig, nodeConfigs);
+            ClientService clientService = new ClientService(linkToClients, nodeConfig, nodeService);
+
             nodeService.listen();
+            clientService.listen();
 
             if (leaderConfig.getBehavior() == Behavior.NO_CLIENT || leaderConfig.getBehavior() == Behavior.LEADER_PRETENDING){
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
-                nodeService.startConsensus("fake value");
+                nodeService.startConsensus("fake value", "0");
             }
 
         } catch (Exception e) {

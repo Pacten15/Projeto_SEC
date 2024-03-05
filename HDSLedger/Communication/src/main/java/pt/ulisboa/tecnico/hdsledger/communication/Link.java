@@ -146,50 +146,6 @@ public class Link {
 
 
     /*
-     * Sends a message to a specific node with guarantee of delivery
-     *
-     * @param nodeId The node identifier
-     *
-     * @param data The message to be sent
-     */
-    public void send_to_server(Message data) {
-
-        // Spawn a new thread to send the message
-        // To avoid blocking while waiting for ACK
-        new Thread(() -> {
-            try {
-                // If the message is not ACK, it will be resent
-                InetAddress destAddress = InetAddress.getByName("localhost");
-                int destPort = 3001;
-                int count = 1;
-                int messageId = data.getMessageId();
-                int sleepTime = BASE_SLEEP_TIME;
-
-                for (;;) {
-                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
-                        data.getType(), destAddress, destPort, messageId, count++));
-                    
-                    unreliableSend(destAddress, destPort, data);
-
-                    // Wait (using exponential back-off), then look for ACK
-                    Thread.sleep(sleepTime);
-
-                    // Receive method will set receivedAcks when sees corresponding ACK
-                    if (receivedAcks.contains(messageId))
-                        break;
-
-                    sleepTime <<= 1;
-                }
-
-                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Message {1} sent to {2}:{3} successfully",
-                        config.getId(), data.getType(), destAddress, destPort));
-            } catch (InterruptedException | UnknownHostException e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
-    /*
      * Sends a message to a specific node without guarantee of delivery
      * Mainly used to send ACKs, if they are lost, the original message will be
      * resent
@@ -208,21 +164,16 @@ public class Link {
 
                 String signature;
 
-                // Security implementation on the sending level
-                //Append Message is the only message that is sent by the client
-                if (data.getType() != Type.APPEND)
-                {
-                    try {
-                        // Sign the message
-                        signature = CryptoUtils.signMessage(message, CryptoUtils.getPrivateKey("../Security/keys/private_key_server_" + config.getId() + ".key"));
-                        // Create a signature message wich is a message consisting of the original message and the signature
-                        SignatureMessage signatureMessage = new SignatureMessage(message, signature);
-                        // Serialize the signature message to send it
-                        message = new Gson().toJson(signatureMessage);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        throw new HDSSException(ErrorMessage.SignatureError);
-                    }
+                try {
+                    // Sign the message
+                    signature = CryptoUtils.signMessage(message, CryptoUtils.getPrivateKey("../Security/keys/private_key_server_" + config.getId() + ".key"));
+                    // Create a signature message wich is a message consisting of the original message and the signature
+                    SignatureMessage signatureMessage = new SignatureMessage(message, signature);
+                    // Serialize the signature message to send it
+                    message = new Gson().toJson(signatureMessage);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    throw new HDSSException(ErrorMessage.SignatureError);
                 }
 
                 byte[] buf = message.getBytes();

@@ -11,6 +11,8 @@ public class ProcessConfig {
 
     private int port;
 
+    private int clientPort;
+
     private Behavior behavior;
 
     public boolean isLeader() {
@@ -19,6 +21,14 @@ public class ProcessConfig {
 
     public int getPort() {
         return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public int getClientPort() {
+        return clientPort;
     }
 
     public String getId() {

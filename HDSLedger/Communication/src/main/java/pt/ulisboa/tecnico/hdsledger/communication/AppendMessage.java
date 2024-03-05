@@ -1,12 +1,12 @@
 package pt.ulisboa.tecnico.hdsledger.communication;
 
-public class AppendMessage extends Message{
+public class AppendMessage extends Message {
 
-    // Message (Append)
     private String message;
 
-    public AppendMessage() {
-        super("69", Type.APPEND);
+    public AppendMessage(String clientId, String message) {
+        super(clientId, Type.APPEND);
+        this.message = message;
     }
 
     public String getMessage() {
@@ -16,6 +16,4 @@ public class AppendMessage extends Message{
     public void setMessage(String message) {
         this.message = message;
     }
-
-    
 }

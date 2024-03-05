@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
+import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
@@ -44,6 +45,8 @@ public class NodeService implements UDPService {
     // Link to communicate with nodes
     private final Link link;
 
+    private final Link clientLink;
+
     // Consensus instance -> Round -> List of prepare messages
     private final MessageBucket prepareMessages;
     // Consensus instance -> Round -> List of commit messages
@@ -64,15 +67,18 @@ public class NodeService implements UDPService {
     //Timer used by the non-leader nodes to send round change messages in case it expires 
     private Timer timer = new Timer();
 
+    private String currentClientId;
+
 
 
     // Ledger (for now, just a list of strings)
     private ArrayList<String> ledger = new ArrayList<String>();
 
-    public NodeService(Link link, ProcessConfig config,
+    public NodeService(Link link, Link clientLink, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
 
         this.link = link;
+        this.clientLink = clientLink;
         this.config = config;
         this.leaderConfig = leaderConfig;
         this.nodesConfig = nodesConfig;
@@ -120,7 +126,7 @@ public class NodeService implements UDPService {
      *
      * @param inputValue Value to value agreed upon
      */
-    public void startConsensus(String value) 
+    public void startConsensus(String value, String clientId) 
     {
         // Set initial consensus values
         int localConsensusInstance = this.consensusInstance.incrementAndGet();
@@ -141,6 +147,8 @@ public class NodeService implements UDPService {
                 e.printStackTrace();
             }
         }
+
+        this.currentClientId = clientId;
 
         // Leader broadcasts PRE-PREPARE message
         if (this.config.isLeader()) {
@@ -366,9 +374,15 @@ public class NodeService implements UDPService {
 
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                 config.getId(), consensusInstance, round, true));
+            
+            if (config.isLeader() && currentClientId != "") {
+                clientLink.send(currentClientId, new AppendMessage(config.getId(), "Success on block " + ledger.size()));
+            }
+            currentClientId = "";
 
             //reset timer
             timer.cancel();
+            timer = new Timer();
         }
     }
 
@@ -418,7 +432,7 @@ public class NodeService implements UDPService {
  
         int currentRound = instance.getCurrentRound();
         System.out.println("Current Round: " + currentRound);
-        int lowestRound = 0;
+        int lowestRound = currentRound + 1;
         if(roundChangeMessages.getMessages(consensusInstance, round).values().size() > 0) 
         {
             System.out.println("Received set of round change messages");
@@ -441,6 +455,7 @@ public class NodeService implements UDPService {
 
             ///TODO: SET Timer running left here
             timer.cancel();
+            timer = new Timer();
             RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
             ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
                 .setConsensusInstance(consensusInstance)
