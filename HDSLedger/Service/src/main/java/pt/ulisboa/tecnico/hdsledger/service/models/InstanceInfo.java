@@ -70,4 +70,8 @@ public class InstanceInfo {
     public int getRoundChangeRound() {
         return roundChangeRound;
     }
+
+    public void setRoundChangeRound(int roundChangeRound) {
+        this.roundChangeRound = roundChangeRound;
+    }
 }

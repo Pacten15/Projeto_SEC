@@ -118,6 +118,21 @@ public class MessageBucket {
         return helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
     }
 
+    public int getLowestRound(int instance, int round) 
+    {
+        int lowestRoundChangeRequest = round + 1;
+
+        for (ConsensusMessage message : bucket.get(instance).get(round).values()) 
+        {
+            //Every round change message in the quorum must have prepared round and prepared value equal to null
+            if(message.getRound() < lowestRoundChangeRequest) 
+            {
+                lowestRoundChangeRequest = message.getRound();
+            }
+        }
+        return lowestRoundChangeRequest;
+    }
+
     public boolean JustifyRoundChangeJ1(int instance, int round) 
     {     
         if(bucket.size() == 0) return false;
@@ -133,4 +148,5 @@ public class MessageBucket {
         }
         return true;
     }
+    
 }
