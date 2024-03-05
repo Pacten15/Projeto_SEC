@@ -62,6 +62,11 @@ public class Node {
                 nodeService.startConsensus("fake value", "0");
             }
 
+            if (nodeConfig.getBehavior() == Behavior.FAKE_PRE_PREPARE){
+                LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
+                nodeService.sendFakePrePrepareMessage("fake value");
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }

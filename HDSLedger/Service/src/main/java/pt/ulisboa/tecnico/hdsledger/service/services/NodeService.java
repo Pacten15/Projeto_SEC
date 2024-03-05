@@ -182,6 +182,9 @@ public class NodeService implements UDPService {
         // Verify if pre-prepare was sent by leader and is justified
         if (!isLeader(senderId) && !JustifyPrePrepare(message)) return;
 
+        if (!isLeader(senderId)) return;
+
+
         // Set instance value
         this.instanceInfo.putIfAbsent(consensusInstance, new InstanceInfo(value));
 
@@ -607,11 +610,14 @@ public class NodeService implements UDPService {
      * 
      * @param message ConsensusMessage that we want to change 
      */
-    public void sendFakePrePrepareMessage(ConsensusMessage message) {
+    public void sendFakePrePrepareMessage(String value) {
         if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_PRE_PREPARE){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Fake pre prepare message", config.getId()));
-            PrePrepareMessage prePrepareMessage = message.deserializePrePrepareMessage();
-            message.setSenderId(this.leaderConfig.getId());
+            int localConsensusInstance = this.consensusInstance.incrementAndGet();
+            this.instanceInfo.put(localConsensusInstance, new InstanceInfo(value));      
+
+            InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
+            this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
         }
     }
 
