@@ -5,7 +5,7 @@
         "hostname": "localhost",
         "port": 3001,
         "clientPort": 4001,
-        "behavior": "NO_CLIENT"
+        "behavior": "BROADCAST_FAIL"
     },
     {
         "id": "2",
@@ -21,7 +21,7 @@
         "hostname": "localhost",
         "port": 3003,
         "clientPort": 4003,
-        "behavior": "FAKE_PREPARE" 
+        "behavior": "NORMAL" 
     },
     {
         "id": "4",

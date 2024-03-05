@@ -2,6 +2,7 @@
     {   
         "id": "69",
         "hostname": "localhost",
-        "port": 3069
+        "port": 3069,
+        "behavior": "NORMAL"
     }
 ]

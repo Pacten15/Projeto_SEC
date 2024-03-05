@@ -76,7 +76,21 @@ public class Link {
      * @param data The message to be broadcasted
      */
     public void broadcast(Message data) {
+        // Test
         Gson gson = new Gson();
+        Random rand = new Random();
+        if (config.getBehavior() == Behavior.BROADCAST_FAIL) {
+            nodes.forEach((destId, dest) -> {
+                if ( rand.nextBoolean() ) {
+                    send(destId, gson.fromJson(gson.toJson(data), data.getClass()));
+                } else {
+                    LOGGER.log(Level.INFO, MessageFormat.format(
+                            "{0} - Message {1} not sent to {2}:{3} due to broadcast fail",
+                            config.getId(), data.getType(), dest.getHostname(), dest.getPort()));
+                }
+            });
+            return;
+        }
         nodes.forEach((destId, dest) -> send(destId, gson.fromJson(gson.toJson(data), data.getClass())));
     }
 
@@ -227,8 +241,6 @@ public class Link {
                 
                 return message;
             }
-            
-                
         }
 
         String senderId = message.getSenderId();
