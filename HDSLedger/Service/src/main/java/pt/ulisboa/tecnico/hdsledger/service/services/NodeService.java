@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,8 +27,6 @@ import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 
 import java.util.Timer;
 import java.util.TimerTask;
-
-
 
 public class NodeService implements UDPService {
 
@@ -63,20 +60,16 @@ public class NodeService implements UDPService {
     // Last decided consensus instance
     private final AtomicInteger lastDecidedConsensusInstance = new AtomicInteger(0);
 
-
     //Timer used by the non-leader nodes to send round change messages in case it expires 
     private Timer timer = new Timer();
 
     private String currentClientId;
 
-
-
     // Ledger (for now, just a list of strings)
     private ArrayList<String> ledger = new ArrayList<String>();
 
-    public NodeService(Link link, Link clientLink, ProcessConfig config,
-            ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) {
-
+    public NodeService(Link link, Link clientLink, ProcessConfig config, ProcessConfig leaderConfig, ProcessConfig[] nodesConfig) 
+    {
         this.link = link;
         this.clientLink = clientLink;
         this.config = config;
@@ -211,7 +204,7 @@ public class NodeService implements UDPService {
 
         //Initializes the timer for the non-leader nodes
         if (!this.config.isLeader()) {
-            setTimer(consensusMessage);
+            setTimer_1(consensusMessage);
         }
         
         this.link.broadcast(consensusMessage);
@@ -222,17 +215,36 @@ public class NodeService implements UDPService {
     *
     * @param message Message to be handled
     */
-    public void setTimer(ConsensusMessage message) {
+    public void setTimer_1(ConsensusMessage consensusMessage) {
         //Set the timer for the non-leader nodes
         System.out.println("Timer has initiated");
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
 
-                uponTimerExpired(message);
+                uponTimerExpired(consensusMessage);
                 System.out.println("Timer expired");
             }
         }, 100 * 400);
+    }
+
+    /*
+    * Initiates a timer and executes the round change message if it expires
+    *
+    * @param message Message to be handled
+    */
+    public void setTimer_2(ConsensusMessage consensusMessage) {
+        //Set the timer for the non-leader nodes
+        System.out.println("Timer has initiated");
+        timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+
+                uponTimerExpired(consensusMessage);
+                System.out.println("Timer expired");
+            }
+        }, 100 * 4000);
     }
 
     /*
@@ -392,20 +404,17 @@ public class NodeService implements UDPService {
     public synchronized void uponTimerExpired(ConsensusMessage message) 
     {
         int consensusInstance = message.getConsensusInstance();
-        int round = message.getRound() + 1;
 
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
+        int round = instance.getCurrentRound() + 1;
         int preparedRound = instance.getPreparedRound();
         String preparedValue = instance.getPreparedValue();
 
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
 
-        //reset timer
-        timer.cancel();
-        timer = new Timer();
-        ///TODO: REMOVE this print after 
         System.out.println("Timer expired, sending round change message to all nodes");
+
         RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
             .setConsensusInstance(consensusInstance)
@@ -437,37 +446,22 @@ public class NodeService implements UDPService {
  
         int currentRound = instance.getCurrentRound();
         System.out.println("Current Round: " + currentRound);
-        int lowestRound = currentRound + 1;
-        if(roundChangeMessages.getMessages(consensusInstance, round).values().size() > 0) 
+        int lowestRound = roundChangeMessages.getLowestRound(consensusInstance, round);
+      
+        // Within an instance of the algorithm, each upon rule is triggered at most once
+        // for any round r
+
+        if (instance.getRoundChangeRound() >= round)
         {
-            System.out.println("Received set of round change messages");
-            // Second Upon logic   
-            for (ConsensusMessage consensusMessage : roundChangeMessages.getMessages(consensusInstance, round).values()) 
-            {
-                // Messages must have a round number superior to the current round
-                if(consensusMessage.getRound() < currentRound) 
-                {
-                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Message round number {1} must be superior to the current round to progress {2} " 
-                        + "from {3}: Consensus Instance {4}, Round {5}", config.getId(), consensusMessage.getRound(), 
-                        currentRound, message.getSenderId(), consensusInstance, currentRound));
-                    return;
-                }
-                if(consensusMessage.getRound() < lowestRound) 
-                {
-                    lowestRound = consensusMessage.getRound(); 
-                }
-            }
-
-            timer.cancel();
-            timer = new Timer();
-
             RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
             ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
                 .setConsensusInstance(consensusInstance)
-                .setRound(lowestRound)
+                .setRound(round)
                 .setMessage(roundchangeMessage.toJson())    
                 .build();
 
+            timer.cancel();
+            setTimer_2(consensusMessage);
             this.link.broadcast(consensusMessage);
         }
 
@@ -482,24 +476,30 @@ public class NodeService implements UDPService {
             System.out.println("Received a quarum of round change messages");
 
             String value;
+            int highest_round;
             if(roundChangeMessages.HighestPrepared(consensusInstance, currentRound) != null) 
             {
                 value = roundChangeMessages.HighestPrepared(consensusInstance, currentRound).getValue();
+                highest_round = roundChangeMessages.HighestPrepared(consensusInstance, currentRound).getKey();
             }
             else
             {
                 value = instance.getInputValue();
+                highest_round = round;
             }
+
+            instance.setCurrentRound(highest_round);
 
             PrepareMessage prepareMessage = new PrepareMessage(value);
             ConsensusMessage m = new ConsensusMessageBuilder(config.getId(), Message.Type.PRE_PREPARE)
                 .setConsensusInstance(consensusInstance)
-                .setRound(currentRound)
+                .setRound(highest_round)
                 .setMessage(prepareMessage.toJson())
                 .setReplyTo(senderId)
                 .setReplyToMessageId(senderMessageId)     
                 .build();
 
+            timer.cancel();
             this.link.broadcast(m);
         }
     }
@@ -554,6 +554,8 @@ public class NodeService implements UDPService {
         }
         return false;  
     }
+
+    /* TESTS  */
 
     /*
      * Send a message pretending to be the leader
