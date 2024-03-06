@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
@@ -82,13 +83,14 @@ public class MessageBucket {
         {
             RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
             String value = roundChangeMessage.getPreparedValue();
+            System.out.println("roundChangeMessage prepared value: " + value);
             frequency.put(value, frequency.getOrDefault(value, 0) + 1);
         });
         
         // Only one value (if any, thus the optional) will have a frequency
         // greater than or equal to the quorum size
         return frequency.entrySet().stream().filter((Map.Entry<String, Integer> entry) -> {
-            return entry.getKey() != null && entry.getValue() >= quorumSize;
+            return entry.getValue() >= quorumSize;
         }).map((Map.Entry<String, Integer> entry) -> {
             return entry.getKey();
         }).findFirst();

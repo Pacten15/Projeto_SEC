@@ -173,10 +173,7 @@ public class NodeService implements UDPService {
             config.getId(), senderId, consensusInstance, round));
 
         // Verify if pre-prepare was sent by leader and is justified
-        if (!isLeader(senderId) && !JustifyPrePrepare(message)) return;
-
-        if (!isLeader(senderId)) return;
-
+        if (!isLeader(senderId) || (!isLeader(senderId) && !JustifyPrePrepare(message))) return;
 
         // Set instance value
         this.instanceInfo.putIfAbsent(consensusInstance, new InstanceInfo(value));
@@ -203,10 +200,8 @@ public class NodeService implements UDPService {
             .build();
 
         //Initializes the timer for the non-leader nodes
-        if (!this.config.isLeader()) {
-            setTimer_1(consensusMessage);
-        }
-        
+        if (!this.config.isLeader()) setTimer_1(consensusMessage);
+               
         this.link.broadcast(consensusMessage);
     }
 
@@ -225,7 +220,7 @@ public class NodeService implements UDPService {
                 uponTimerExpired(consensusMessage);
                 System.out.println("Timer expired");
             }
-        }, 100 * 400);
+        }, 400);
     }
 
     /*
@@ -259,7 +254,6 @@ public class NodeService implements UDPService {
         String senderId = message.getSenderId();
 
         PrepareMessage prepareMessage = message.deserializePrepareMessage();
-
         String value = prepareMessage.getValue();
 
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PREPARE message from {1}: Consensus Instance {2}, Round {3}",
@@ -288,10 +282,8 @@ public class NodeService implements UDPService {
                 .setReplyToMessageId(message.getMessageId())
                 .setMessage(instance.getCommitMessage().toJson())
                 .build();
-                
-                
+                          
             makeMeLeaderCP(m);
-
 
             link.send(senderId, m);
             return;
@@ -321,9 +313,7 @@ public class NodeService implements UDPService {
                         .setReplyToMessageId(senderMessage.getMessageId())
                         .setMessage(c.toJson())
                         .build();
-                
-                
-
+                          
                 makeMeLeaderCP(m);
 
                 link.send(senderMessage.getSenderId(), m);
@@ -365,7 +355,6 @@ public class NodeService implements UDPService {
         }
 
         Optional<String> commitValue = commitMessages.hasValidCommitQuorum(config.getId(), consensusInstance, round);
-
         if (commitValue.isPresent() && instance.getCommittedRound() < round) {
             instance = this.instanceInfo.get(consensusInstance);
             instance.setCommittedRound(round);
@@ -407,6 +396,9 @@ public class NodeService implements UDPService {
 
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
         int round = instance.getCurrentRound() + 1;
+        instance.setPreparedRound(round);
+        instance.setPreparedValue(instance.getPreparedValue());;
+        ///TODO: FIX THIS VALUES TOO
         int preparedRound = instance.getPreparedRound();
         String preparedValue = instance.getPreparedValue();
 
@@ -432,32 +424,32 @@ public class NodeService implements UDPService {
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
 
-        InstanceInfo instance = this.instanceInfo.get(consensusInstance);
-        int preparedRound = instance.getPreparedRound();
-        String preparedValue = instance.getPreparedValue();
+        RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
+        String value = roundChangeMessage.getPreparedValue();
 
-        String senderId = message.getSenderId();
-        int senderMessageId = message.getMessageId();
+        LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ROUNDCHANGE message from {1}: Consensus Instance {2}, Round {3}", config.getId(), 
+            message.getSenderId(), consensusInstance, round));
 
         roundChangeMessages.addMessage(message);
-
-        System.out.println("Dealing with Round Change");
-        System.out.println("round: " + round);
- 
-        int currentRound = instance.getCurrentRound();
-        System.out.println("Current Round: " + currentRound);
         int lowestRound = roundChangeMessages.getLowestRound(consensusInstance, round);
-      
-        // Within an instance of the algorithm, each upon rule is triggered at most once
-        // for any round r
 
+        // Set instance values
+        this.instanceInfo.putIfAbsent(consensusInstance, new InstanceInfo(value));
+        InstanceInfo instance = this.instanceInfo.get(consensusInstance); 
+
+        System.out.println("instance getPreparedValue - " + instance.getPreparedValue());
+        System.out.println("instance getPreparedRound - " + instance.getPreparedRound());             
+        System.out.println("Lowest Round: " + lowestRound);
+        // Within an instance of the algorithm, each upon rule is triggered at most once for any round r
         if (instance.getRoundChangeRound() >= round)
         {
-            RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
+            System.out.println("Here 1");
+
+            RoundChangeMessage roundchangeMessagez = new RoundChangeMessage(instance.getPreparedRound(), instance.getPreparedValue());
             ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
                 .setConsensusInstance(consensusInstance)
-                .setRound(round)
-                .setMessage(roundchangeMessage.toJson())    
+                .setRound(lowestRound)
+                .setMessage(roundchangeMessagez.toJson())    
                 .build();
 
             timer.cancel();
@@ -468,35 +460,39 @@ public class NodeService implements UDPService {
         // Third Upon logic
         // Find value with valid quorum
         Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), consensusInstance, round);
+        System.out.println("pV ROUND CHANGE " + pV);
         if (pV.isPresent() && instance.getRoundChangeRound() < round) 
         {
-            //If is not leader and RoundChange is not justified return
-            if (!isLeader(senderId) && !JustifyRoundChange(consensusInstance, lowestRound)) return;
-
             System.out.println("Received a quarum of round change messages");
+            instance.setPreparedValue(pV.get());
+            instance.setCurrentRound(round);
+            instance.setRoundChangeRound(round);
 
-            String value;
-            int highest_round;
-            if(roundChangeMessages.HighestPrepared(consensusInstance, currentRound) != null) 
+            //If is not leader and RoundChange is not justified return
+            if (!isLeader(message.getSenderId()) && !JustifyRoundChange(consensusInstance, lowestRound)) return;
+
+            String newValue;
+            int highestRound;
+            if(roundChangeMessages.HighestPrepared(consensusInstance, round) != null) 
             {
-                value = roundChangeMessages.HighestPrepared(consensusInstance, currentRound).getValue();
-                highest_round = roundChangeMessages.HighestPrepared(consensusInstance, currentRound).getKey();
+                newValue = roundChangeMessages.HighestPrepared(consensusInstance, round).getValue();
+                highestRound = roundChangeMessages.HighestPrepared(consensusInstance, round).getKey();
             }
             else
             {
-                value = instance.getInputValue();
-                highest_round = round;
+                newValue = instance.getInputValue();
+                highestRound = round;
             }
 
-            instance.setCurrentRound(highest_round);
+            instance.setCurrentRound(highestRound);
 
-            PrepareMessage prepareMessage = new PrepareMessage(value);
+            PrepareMessage newPrepareMessage = new PrepareMessage(newValue);
             ConsensusMessage m = new ConsensusMessageBuilder(config.getId(), Message.Type.PRE_PREPARE)
                 .setConsensusInstance(consensusInstance)
-                .setRound(highest_round)
-                .setMessage(prepareMessage.toJson())
-                .setReplyTo(senderId)
-                .setReplyToMessageId(senderMessageId)     
+                .setRound(highestRound)
+                .setMessage(newPrepareMessage.toJson())
+                .setReplyTo(message.getSenderId())
+                .setReplyToMessageId(message.getMessageId())     
                 .build();
 
             timer.cancel();
@@ -545,7 +541,7 @@ public class NodeService implements UDPService {
                     {
                         ///TODO: I commented this because in the J2 we have this condition, but we can confirm this with DEBUG!!!
                         //String value = roundChangeMessages.HighestPrepared(consensusInstance, round).getValue();
-                        instance.setInputValue(pV.toString());
+                        instance.setInputValue(pV.get());
                         return true;
                     }
                     return true;
