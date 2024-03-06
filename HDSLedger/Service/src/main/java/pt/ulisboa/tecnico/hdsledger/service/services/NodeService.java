@@ -67,6 +67,8 @@ public class NodeService implements UDPService {
     //Timer used by the non-leader nodes to send round change messages in case it expires 
     private Timer timer = new Timer();
 
+    private String currentClientId = "";
+
 
 
     // Ledger (for now, just a list of strings)
@@ -145,7 +147,7 @@ public class NodeService implements UDPService {
     public void startConsensus(String value, String clientId) {
         // Set initial consensus values
         int localConsensusInstance = this.consensusInstance.incrementAndGet();
-        InstanceInfo existingConsensus = this.instanceInfo.put(localConsensusInstance, new InstanceInfo(value, clientId));      
+        InstanceInfo existingConsensus = this.instanceInfo.put(localConsensusInstance, new InstanceInfo(value));      
 
         // If startConsensus was already called for a given round
         if (existingConsensus != null) {
@@ -162,6 +164,8 @@ public class NodeService implements UDPService {
                 e.printStackTrace();
             }
         }
+
+        this.currentClientId = clientId;
 
         // Leader broadcasts PRE-PREPARE message
         if (isLeader(this.config.getId())) {
@@ -388,8 +392,8 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                 config.getId(), consensusInstance, round, true));
             
-            if (isLeader(config.getId()) && instance.getClientId() != "" && clientLink != null) {
-                clientLink.send(instance.getClientId(), new AppendMessage(config.getId(), "Success on block " + ledger.size()));
+            if (isLeader(config.getId()) && currentClientId != "" && clientLink != null) {
+                clientLink.send(currentClientId, new AppendMessage(config.getId(), "Success on block " + ledger.size()));
             }
 
             //reset timer
@@ -587,7 +591,7 @@ public class NodeService implements UDPService {
         if(!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_PRE_PREPARE){
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Fake pre prepare message", config.getId()));
             int localConsensusInstance = this.consensusInstance.incrementAndGet();
-            this.instanceInfo.put(localConsensusInstance, new InstanceInfo(value, "0"));      
+            this.instanceInfo.put(localConsensusInstance, new InstanceInfo(value));      
 
             InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
             this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
