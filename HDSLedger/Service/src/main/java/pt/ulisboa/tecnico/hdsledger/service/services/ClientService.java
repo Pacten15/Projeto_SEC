@@ -42,7 +42,7 @@ public class ClientService implements UDPService {
                         new Thread(() -> {
                             switch (message.getType()) {
                                 case APPEND -> {
-                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received APPEND message '{2}' from {1}", config.getId(), message.getSenderId()));
+                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received APPEND message \"{2}\" from {1}", config.getId(), message.getSenderId()));
                                     append((AppendMessage)message);
                                 }
                                 case ACK ->

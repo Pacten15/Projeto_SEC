@@ -7,7 +7,7 @@ public class InstanceInfo {
     // State Variables
     private int currentRound = 1;
     private int preparedRound = -1;
-    private String preparedValue;
+    private String preparedValue = "";
     private String inputValue;
 
     private CommitMessage commitMessage;
