@@ -29,7 +29,7 @@ client_configs = [
 ]
 
 
-server_config = server_configs[9]
+server_config = server_configs[10]
 
 client_config = client_configs[0]
 

@@ -185,6 +185,7 @@ public class NodeService implements UDPService {
      */
     public void uponPrePrepare(ConsensusMessage message) 
     {
+
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
         String senderId = message.getSenderId();
@@ -192,6 +193,13 @@ public class NodeService implements UDPService {
 
         PrePrepareMessage prePrepareMessage = message.deserializePrePrepareMessage();
         // String value = prePrepareMessage.getValue();
+
+        if (consensusInstance <= lastDecidedConsensusInstance.get()) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+                config.getId(), consensusInstance, round));
+            return;
+        }
 
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message from {1} Consensus Instance {2}, Round {3}",
             config.getId(), senderId, consensusInstance, round));
@@ -268,6 +276,13 @@ public class NodeService implements UDPService {
         int round = message.getRound();
         String senderId = message.getSenderId();
 
+        if (consensusInstance <= lastDecidedConsensusInstance.get()) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+                config.getId(), consensusInstance, round));
+            return;
+        }
+
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PREPARE message from {1}: Consensus Instance {2}, Round {3}",
             config.getId(), senderId, consensusInstance, round));
 
@@ -341,6 +356,13 @@ public class NodeService implements UDPService {
     {
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
+
+        if (consensusInstance <= lastDecidedConsensusInstance.get()) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+                config.getId(), consensusInstance, round));
+            return;
+        }
 
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received COMMIT message from {1}: Consensus Instance {2}, Round {3}",
             config.getId(), message.getSenderId(), consensusInstance, round));
@@ -438,6 +460,13 @@ public class NodeService implements UDPService {
 
         roundChangeMessages.addMessage(message);
 
+        if (consensusInstance <= lastDecidedConsensusInstance.get()) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+                config.getId(), consensusInstance, round));
+            return;
+        }
+
         if (instance.getRoundChangeRound() >= currentRound) 
         {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Already received ROUND_CHANGE message for Consensus Instance {1}, Round {2}, ignoring, "
@@ -466,15 +495,29 @@ public class NodeService implements UDPService {
 
             System.out.println("!!! Reached a quorum of round change messages !!!");
 
-            instance.setCurrentRound(newRound);
             makeLeader(nextLeader());
+
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+            instance.setCurrentRound(newRound);
+            
+
+            System.out.println(leaderConfig.getId() + " is the new leader");
 
             if (isLeader(config.getId())) 
             {
+                System.out.println("I am the new leader");
                 // Leader broadcasts PRE-PREPARE message
                 String value = instance.getInputValue();
                 this.link.broadcast(this.createConsensusMessage(value, consensusInstance, newRound));
             }
+            
+
         }
     }
 
