@@ -267,6 +267,21 @@ public class Link {
             message.setType(Message.Type.IGNORE);
         }
 
+        if (!local) {
+            InetAddress address = InetAddress.getByName(response.getAddress().getHostAddress());
+            int port = response.getPort();
+
+            Message responseMessage = new Message(this.config.getId(), Message.Type.ACK);
+            
+            responseMessage.setMessageId(messageId);
+
+            // ACK is sent without needing for another ACK because
+            // we're assuming an eventually synchronous network
+            // Even if a node receives the message multiple times,
+            // it will discard duplicates
+            unreliableSend(address, port, responseMessage);
+        }
+
         switch (message.getType()) {
             case PRE_PREPARE -> {
                 return message;
@@ -288,21 +303,6 @@ public class Link {
                     receivedAcks.add(consensusMessage.getReplyToMessageId());
             }
             default -> {}
-        }
-
-        if (!local) {
-            InetAddress address = InetAddress.getByName(response.getAddress().getHostAddress());
-            int port = response.getPort();
-
-            Message responseMessage = new Message(this.config.getId(), Message.Type.ACK);
-            
-            responseMessage.setMessageId(messageId);
-
-            // ACK is sent without needing for another ACK because
-            // we're assuming an eventually synchronous network
-            // Even if a node receives the message multiple times,
-            // it will discard duplicates
-            unreliableSend(address, port, responseMessage);
         }
 
         return message;
