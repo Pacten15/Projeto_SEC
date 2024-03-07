@@ -29,6 +29,21 @@ Can be found inside the `resources/` folder of the `Service` module.
     "isLeader": <IS_LEADER>,
     "hostname": "localhost",
     "port": <NODE_PORT>,
+    "clientPort": <CLIENT_PORT>,
+    "behaviour": <BEHAVIOUR>
+}
+```
+
+### Client configuration
+
+Can be found inside the `resources/` folder of the `Client` module.
+
+```json
+{
+    "id": <CLIENT_ID>,
+    "hostname": "localhost",
+    "port": <CLIENT_PORT>,
+    "behavior": <BEHAVIOR>
 }
 ```
 
@@ -63,6 +78,13 @@ python3 puppet-master.py
 ```
 Note: You may need to install **kitty** in your computer
 
+In Linux:
+
+```bash
+sudo apt install kitty
+```
+sudo apt install kitty
+
 ## Maven
 
 It's also possible to run the project manually by using Maven.
@@ -90,6 +112,45 @@ Run with arguments
 cd <module>/
 mvn compile exec:java -Dexec.args="..."
 ```
+
+### Execution Example
+
+First: 
+    Open 4 terminals to host the servers
+
+Second: 
+    In each of them go to directory `Service` and run in each terminal these comands being one for each terminal and in this order:
+
+        mvn exec:java '-Dexec.args=2 regular_config.json'
+
+        mvn exec:java '-Dexec.args=3 regular_config.json'
+
+        mvn exec:java '-Dexec.args=4 regular_config.json'
+
+        mvn exec:java '-Dexec.args=1 regular_config.json'
+
+    To Change the behaviour just chose one of the configs presented in the `resources` directory from the `Service` module
+
+Third:
+    Open another terminal to host the client
+
+Forth:
+
+    Execute in the terminal the following command:
+
+        mvn exec:java '-Dexec.args=69 regular_config.json'
+
+
+    Example of the execution the append command in the client side:
+
+        append abcd
+
+
+
+
+
+
+
 ---
 This codebase was adapted from last year's project solution, which was kindly provided by the following group: [David Belchior](https://github.com/DavidAkaFunky), [Diogo Santos](https://github.com/DiogoSantoss), [Vasco Correia](https://github.com/Vaascoo). We thank all the group members for sharing their code.
 

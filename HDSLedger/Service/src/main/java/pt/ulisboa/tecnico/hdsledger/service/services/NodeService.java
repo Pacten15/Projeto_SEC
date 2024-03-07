@@ -197,7 +197,7 @@ public class NodeService implements UDPService {
             config.getId(), senderId, consensusInstance, round));
 
         // Verify if pre-prepare was sent by leader or is justified
-        // if (!isLeader(senderId) && !JustifyPrePrepare(message)) return;
+        if (!isLeader(senderId) && !JustifyPrePrepare(message)) return;
 
         if (!isLeader(senderId)) return;
 
@@ -235,10 +235,9 @@ public class NodeService implements UDPService {
             setTimer(consensusMessage);
         }
 
-        if (round != 1) {
-            // Leader broadcasts PREPARE message
-            this.link.broadcast(consensusMessage);
-        }
+        if(config.getBehavior() == Behavior.NO_PREPARE_01 && round == 1) return;
+        
+        this.link.broadcast(consensusMessage);
     }
 
     /*
@@ -463,7 +462,7 @@ public class NodeService implements UDPService {
         {
             instance.setRoundChangeRound(currentRound);
             //If is not leader and RoundChange is not justified return
-            // if (!isLeader(senderId) && !JustifyRoundChange(consensusInstance, newRound)) return;
+            //if (!isLeader(config.getId()) && !JustifyRoundChange(consensusInstance, newRound)) return;
 
             System.out.println("!!! Reached a quorum of round change messages !!!");
 
@@ -598,6 +597,11 @@ public class NodeService implements UDPService {
         }
     }
 
+
+    public void sendAckofIgnore() {
+        this.link.send(config.getId(), new Message(config.getId(), Message.Type.ACK));
+    }
+
     @Override
     public void listen() 
     {
@@ -631,8 +635,10 @@ public class NodeService implements UDPService {
                                     uponRoundChange((ConsensusMessage) message);
                                 case ACK ->
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ACK message from {1}", config.getId(), message.getSenderId()));
-                                case IGNORE ->
+                                case IGNORE -> {
+                                    sendAckofIgnore();
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received IGNORE message from {1}", config.getId(), message.getSenderId()));
+                                }
                                 default ->
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received unknown message from {1}", config.getId(), message.getSenderId()));
                             }
