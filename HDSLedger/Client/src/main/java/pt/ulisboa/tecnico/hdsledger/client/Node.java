@@ -90,7 +90,7 @@ public class Node {
                 Message message = link.receive();
 
                 if (message.getType() == Message.Type.APPEND) {
-                    System.out.println(MessageFormat.format("{0} - Received APPEND SUCCESS message \"{2}\" from {1}", client.getId(), message.getSenderId(), ((AppendMessage) message).getMessage()));
+                    System.out.println(MessageFormat.format("{0} - Received APPEND SUCCESS message from {1} with content {2}", client.getId(), message.getSenderId(), ((AppendMessage) message).getMessage()));
                     break;
                 }
             }

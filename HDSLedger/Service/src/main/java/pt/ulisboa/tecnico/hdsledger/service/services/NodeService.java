@@ -256,7 +256,7 @@ public class NodeService implements UDPService {
 
                 uponTimerExpired(message);
             }
-        }, 30*400);
+        }, 30 * 400);
     }
 
     /*
@@ -423,7 +423,10 @@ public class NodeService implements UDPService {
 
         int round = instance.getCurrentRound() + 1;
         int preparedRound = instance.getPreparedRound();
+        
         String preparedValue = instance.getPreparedValue();
+
+        
 
         instance.setCurrentRound(round);
 
@@ -432,7 +435,7 @@ public class NodeService implements UDPService {
 
         RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
 
-        System.out.println("Timer expired, sending round change message to all nodes");
+        LOGGER.log(Level.INFO, MessageFormat.format("{0} - Timer expired, sending ROUND_CHANGE message to all nodes", config.getId()));
 
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
             .setConsensusInstance(consensusInstance)
@@ -489,12 +492,21 @@ public class NodeService implements UDPService {
         if (pV.isPresent() && instance.getRoundChangeRound() < currentRound) {
             instance.setRoundChangeRound(currentRound);
 
-            System.out.println("!!! Reached a quorum of round change messages !!!");
+            LOGGER.log(Level.INFO, MessageFormat.format("#################################\n"+ 
+                    "{0} - Reached a Quorum of ROUND_CHANGE\n" +
+                    "#################################",
+            config.getId()));
             makeLeader(nextLeader());
-            System.out.println(leaderConfig.getId() + " is the new leader");
+            LOGGER.log(Level.INFO, leaderConfig.getId() + " is the new leader");
 
             if (isLeader(config.getId()) && JustifyRoundChange(consensusInstance, instance.getCurrentRound())) {
-                System.out.println("I am the new leader");
+
+                LOGGER.log(Level.INFO, MessageFormat.format("#################################\n"+ 
+                    "{0} - I AM THE LEADER\n" +
+                    "#################################",
+            config.getId()));
+
+                
                 // Leader broadcasts PRE-PREPARE message
 
                 String value = roundChangeMessages.HighestPrepared(consensusInstance, round).getValue();
