@@ -256,7 +256,7 @@ public class NodeService implements UDPService {
 
                 uponTimerExpired(message);
             }
-        }, 1000);
+        }, 30*400);
     }
 
     /*
@@ -272,7 +272,7 @@ public class NodeService implements UDPService {
 
         if (consensusInstance <= lastDecidedConsensusInstance.get()) 
         {
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
                 config.getId(), consensusInstance, round));
             return;
         }
@@ -353,7 +353,7 @@ public class NodeService implements UDPService {
 
         if (consensusInstance <= lastDecidedConsensusInstance.get()) 
         {
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received COMMIT message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
                 config.getId(), consensusInstance, round));
             return;
         }
