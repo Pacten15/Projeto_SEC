@@ -21,7 +21,8 @@ server_configs = [
     "leader_pretending_config.json",
     "fake_preprepare_config.json",
     "broadcast_fail_leader.json",
-    "no_prepare_01.json"
+    "no_prepare_01.json",
+    "no_commit_01.json"
 ]
 
 client_configs = [
