@@ -20,6 +20,8 @@ public enum Behavior {
     BROADCAST_FAIL("BROADCAST_FAIL"),
     //A process does not send prepare messages if is on round 1 upon receiving a pre prepare message
     NO_PREPARE_01("NO_PREPARE_01"),
+    //A process does not send commit messages if is on round 1 upon receiving a prepare message
+    NO_COMMIT_01("NO_COMMIT_01"),
     //A process that does not verify its messages
     NO_VERIFICATION("NO_VERIFICATION"),
     //A Leader process start a consensus with a predefined value

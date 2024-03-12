@@ -305,6 +305,8 @@ public class NodeService implements UDPService {
                 
             makeMeLeaderCP(m);
 
+            if(config.getBehavior() == Behavior.NO_COMMIT_01 && round == 1) return;
+
             link.send(senderId, m);
             return;
         }
@@ -335,6 +337,8 @@ public class NodeService implements UDPService {
                         .build();
 
                 makeMeLeaderCP(m);
+
+                if(config.getBehavior() == Behavior.NO_COMMIT_01 && round == 1) return;
 
                 link.send(senderMessage.getSenderId(), m);
             });
@@ -530,8 +534,9 @@ public class NodeService implements UDPService {
         this.link.broadcast(consensusMessage);
     }
 
-    public boolean JustifyRoundChange(int instance, int round) 
+    public boolean JustifyRoundChange(int instance, int round)
     {
+        int previous_round = round - 1;
         Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), instance, round);
         // no roundchange quorum, no justify
         if (!pV.isPresent()) return false;
@@ -540,7 +545,7 @@ public class NodeService implements UDPService {
         if (pV.get().equals("")) return true;
 
         // no prepare quorum, no justify
-        Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), instance, round);
+        Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), instance, previous_round);
         if (!preparedValue.isPresent()) return false;
 
         // highestPrepared != preparedValue, no justify
