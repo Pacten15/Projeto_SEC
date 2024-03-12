@@ -15,12 +15,20 @@ import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.text.MessageFormat;
+
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
+import java.util.Random;
+import java.util.logging.Level;
 
 public class CryptoUtils {
 
+    public static int generateNonce() {
+        Random random = new Random();
+        return random.nextInt(Integer.MAX_VALUE);
+    }
 
     public static boolean verifySignature(String message, String signature, PublicKey publicKey) {
         try {
@@ -80,7 +88,7 @@ public class CryptoUtils {
         }
     }
 
-    public static String encrypMessage(String message, Key key) {
+    public static String encryptMessage(String message, Key key) {
         try {
             Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
             cipher.init(Cipher.ENCRYPT_MODE, key);

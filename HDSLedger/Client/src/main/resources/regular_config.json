@@ -4,5 +4,17 @@
         "hostname": "localhost",
         "port": 3069,
         "behavior": "NORMAL"
+    },
+    {   
+        "id": "70",
+        "hostname": "localhost",
+        "port": 3070,
+        "behavior": "NORMAL"
+    },
+    {   
+        "id": "71",
+        "hostname": "localhost",
+        "port": 3071,
+        "behavior": "NORMAL"
     }
 ]

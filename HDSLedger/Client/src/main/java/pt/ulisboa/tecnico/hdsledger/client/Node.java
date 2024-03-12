@@ -18,13 +18,16 @@ public class Node {
 
     private static final CustomLogger LOGGER = new CustomLogger(Node.class.getName());
 
-    private static String nodesConfigPath = "../Service/src/main/resources/regular_config.json";
+    private static String nodesConfigPath = "../Service/src/main/resources/";
     private static String clientsConfigPath = "src/main/resources/regular_config.json";
 
     public static void main(String[] args) {
 
         try {
-            String id = "69";
+            // Command line arguments
+            String id = args[0];
+            nodesConfigPath += args[1];
+
             ProcessConfig[] clientConfigs = new ProcessConfigBuilder().fromFile(clientsConfigPath);
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);
             ProcessConfig clientConfig = Arrays.stream(clientConfigs).filter(c -> c.getId().equals(id)).findAny().get();
@@ -37,6 +40,7 @@ public class Node {
                 node.setPort(node.getClientPort());
             }
             Link link = new Link(clientConfig, clientConfig.getPort(), nodeConfigs, AppendMessage.class);
+            link.randomizeCounter();
 
             Scanner scanner = new Scanner(System.in);
 

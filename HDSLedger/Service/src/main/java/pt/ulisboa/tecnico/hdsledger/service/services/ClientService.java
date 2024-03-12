@@ -48,7 +48,7 @@ public class ClientService implements UDPService {
                                 case ACK ->
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ACK message from {1}", config.getId(), message.getSenderId()));
                                 case IGNORE ->
-                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received IGNORE message from {1}", config.getId(), message.getSenderId()));
+                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received IGNORE message from {1}, ID is {2}", config.getId(), message.getSenderId(), message.getMessageId()));
                                 default ->
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received unknown message from {1}", config.getId(), message.getSenderId()));
                             }

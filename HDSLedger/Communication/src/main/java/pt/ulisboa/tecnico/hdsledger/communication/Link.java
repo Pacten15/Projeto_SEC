@@ -66,6 +66,10 @@ public class Link {
         }
     }
 
+    public void randomizeCounter() {
+        messageCounter.set(new Random().nextInt(999999999));
+    }
+
     public void ackAll(List<Integer> messageIds) {
         receivedAcks.addAll(messageIds);
     }
@@ -76,8 +80,9 @@ public class Link {
      * @param data The message to be broadcasted
      */
     public void broadcast(Message data) {
-        // Test
         Gson gson = new Gson();
+
+        // Test
         Random rand = new Random();
         if (config.getBehavior() == Behavior.BROADCAST_FAIL) {
             nodes.forEach((destId, dest) -> {
@@ -91,6 +96,8 @@ public class Link {
             });
             return;
         }
+        // End Test
+
         nodes.forEach((destId, dest) -> send(destId, gson.fromJson(gson.toJson(data), data.getClass())));
     }
 

@@ -167,12 +167,15 @@ public class NodeService implements UDPService {
 
         this.currentClientId = clientId;
 
+        InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
+        ConsensusMessage consensusMessage = this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound());
+
         // Leader broadcasts PRE-PREPARE message
         if (isLeader(this.config.getId())) {
-            InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
-            this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
+            this.link.broadcast(consensusMessage);
         } else {
+            setTimer(consensusMessage);
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Node is not leader, waiting for PRE-PREPARE message", config.getId()));
         }
     }
@@ -496,18 +499,20 @@ public class NodeService implements UDPService {
         if (pV.isPresent() && instance.getRoundChangeRound() < currentRound) {
             instance.setRoundChangeRound(currentRound);
 
-            LOGGER.log(Level.INFO, MessageFormat.format("#################################\n"+ 
+            LOGGER.log(Level.INFO, MessageFormat.format(
+                    "####################################\n"+ 
                     "{0} - Reached a Quorum of ROUND_CHANGE\n" +
-                    "#################################",
+                    "####################################",
             config.getId()));
             makeLeader(nextLeader());
             LOGGER.log(Level.INFO, leaderConfig.getId() + " is the new leader");
 
             if (isLeader(config.getId()) && JustifyRoundChange(consensusInstance, instance.getCurrentRound())) {
 
-                LOGGER.log(Level.INFO, MessageFormat.format("#################################\n"+ 
+                LOGGER.log(Level.INFO, MessageFormat.format(
+                    "###################\n"+ 
                     "{0} - I AM THE LEADER\n" +
-                    "#################################",
+                    "###################",
             config.getId()));
 
                 
