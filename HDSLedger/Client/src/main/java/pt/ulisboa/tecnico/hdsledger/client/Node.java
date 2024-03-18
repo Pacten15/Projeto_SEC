@@ -21,6 +21,8 @@ public class Node {
     private static String nodesConfigPath = "../Service/src/main/resources/";
     private static String clientsConfigPath = "src/main/resources/regular_config.json";
 
+    private static int quorum_f;
+
     public static void main(String[] args) {
 
         try {
@@ -31,6 +33,9 @@ public class Node {
             ProcessConfig[] clientConfigs = new ProcessConfigBuilder().fromFile(clientsConfigPath);
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);
             ProcessConfig clientConfig = Arrays.stream(clientConfigs).filter(c -> c.getId().equals(id)).findAny().get();
+
+            // count the number of nodes
+            quorum_f = Math.floorDiv(nodeConfigs.length - 1, 3);
 
             CryptoUtils.createKeyPair(4096, "../Security/keys/public_key_server_" + id + ".key" , "../Security/keys/private_key_server_" + id + ".key");
 
@@ -88,14 +93,19 @@ public class Node {
         AppendMessage appendMessage = new AppendMessage(client.getId(), messageString);
         link.broadcast(appendMessage);
 
-        // wait for APPEND response
+        // wait for APPEND response quorum (f + 1 messages) and exit
+        // but create thread to wait for 2f + 1 messages to ACK
+        
+        int received_messages = 0;
         try {
             while (true) {
                 Message message = link.receive();
 
                 if (message.getType() == Message.Type.APPEND) {
                     System.out.println(MessageFormat.format("{0} - Received APPEND SUCCESS message from {1} with content {2}", client.getId(), message.getSenderId(), ((AppendMessage) message).getMessage()));
-                    break;
+                    if (++received_messages >= quorum_f + 1) {
+                        break;
+                    }
                 }
             }
         } catch (IOException | ClassNotFoundException e) {

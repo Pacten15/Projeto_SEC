@@ -414,7 +414,7 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                 config.getId(), consensusInstance, round, true));
             
-            if (isLeader(config.getId()) && currentClientId != "" && clientLink != null) {
+            if (currentClientId != "" && clientLink != null) {
                 clientLink.send(currentClientId, new AppendMessage(config.getId(), "Success on block " + ledger.size()));
             }
 
