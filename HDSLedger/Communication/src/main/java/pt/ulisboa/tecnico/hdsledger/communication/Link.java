@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.communication;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import pt.ulisboa.tecnico.hdsledger.communication.Message.Type;
 import pt.ulisboa.tecnico.hdsledger.utilities.*;
@@ -101,6 +102,25 @@ public class Link {
         nodes.forEach((destId, dest) -> send(destId, gson.fromJson(gson.toJson(data), data.getClass())));
     }
 
+    public void signMessage(Message message) {
+        message.setSignature("");
+
+        String messageString = new Gson().toJson(message);
+        String signature = CryptoUtils.signMessage(messageString, CryptoUtils.getPrivateKey("../Security/keys/private_key_server_" + config.getId() + ".key"));
+
+        message.setSignature(signature);
+    }
+
+    public boolean verifySignature(String serialized, String senderId) {
+        String signatureStart = serialized.substring(serialized.indexOf("\"signature\":\"") + 13);
+        String signature = signatureStart.substring(0, signatureStart.indexOf("\""));
+        String messageString = serialized.replace(signature, "");
+        signature = signature.replace("\\u003d", "=");
+
+        return CryptoUtils.verifySignature(messageString, signature, CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + senderId + ".key"));
+    }
+
+
     /*
      * Sends a message to a specific node with guarantee of delivery
      *
@@ -138,6 +158,8 @@ public class Link {
                     return;
                 }
 
+                signMessage(data);
+
                 for (;;) {
                     LOGGER.log(Level.INFO, MessageFormat.format(
                             "{0} - Sending {1} message to {2}:{3} with message ID {4} - Attempt #{5}", config.getId(),
@@ -151,7 +173,7 @@ public class Link {
                     Thread.sleep(sleepTime);
 
                     // Receive method will set receivedAcks when sees corresponding ACK
-                    if (receivedAcks.contains(messageId))
+                    if (receivedAcks.contains(messageId) || count > 10)
                         break;
 
                     sleepTime <<= 1;
@@ -180,22 +202,7 @@ public class Link {
     public void unreliableSend(InetAddress hostname, int port, Message data) {
         new Thread(() -> {
             try {
-
                 String message = new Gson().toJson(data);
-
-                String signature;
-
-                try {
-                    // Sign the message
-                    signature = CryptoUtils.signMessage(message, CryptoUtils.getPrivateKey("../Security/keys/private_key_server_" + config.getId() + ".key"));
-                    // Create a signature message wich is a message consisting of the original message and the signature
-                    SignatureMessage signatureMessage = new SignatureMessage(message, signature);
-                    // Serialize the signature message to send it
-                    message = new Gson().toJson(signatureMessage);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    throw new HDSSException(ErrorMessage.SignatureError);
-                }
 
                 byte[] buf = message.getBytes();
                 DatagramPacket packet = new DatagramPacket(buf, buf.length, hostname, port);
@@ -213,7 +220,6 @@ public class Link {
     public Message receive() throws IOException, ClassNotFoundException {
 
         Message message = null;
-        SignatureMessage signatureMessage = null;
         String serialized = "";
         Boolean local = false;
         DatagramPacket response = null;
@@ -232,18 +238,16 @@ public class Link {
             byte[] buffer = Arrays.copyOfRange(response.getData(), 0, response.getLength());
             serialized = new String(buffer);
 
-            //Get message from the serialized signature message
-            signatureMessage = new Gson().fromJson(serialized, SignatureMessage.class);
-            message = new Gson().fromJson(signatureMessage.getMessage(), Message.class);
+            message = new Gson().fromJson(serialized, Message.class);
 
-            //Security implementation on the receiving level
-            if (!CryptoUtils.verifySignature(signatureMessage.getMessage(), signatureMessage.getSignature(), CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + message.getSenderId() + ".key"))) {
+            // If the signature is not valid, ignore the message
+            if (!verifySignature(serialized, message.getSenderId())) {
                 message.setType(Message.Type.IGNORE);
 
                 LOGGER.log(Level.INFO, MessageFormat.format(
-                    "\n#######################################################################################################\n" + 
-                    "{0} - Message {1} received from {2}:{3} with senderID{4} message ID {5} - Signature verification failed\n" +
-                    "########################################################################################################\n",
+                    "\n#######################################################################################\n" + 
+                    "{0} - Message {1} received from {2}:{3} with senderID {4} message ID {5} - Signature verification failed\n" +
+                    "#######################################################################################\n",
                         config.getId(), message.getType(), response.getAddress(), response.getPort(),message.getSenderId(), message.getMessageId()));
                 
                 return message;
@@ -265,7 +269,7 @@ public class Link {
 
         // It's not an ACK -> Deserialize for the correct type
         if (!local)
-            message = new Gson().fromJson(signatureMessage.getMessage(), this.messageClass);
+            message = new Gson().fromJson(serialized, this.messageClass);
 
         boolean isRepeated = !receivedMessages.get(message.getSenderId()).add(messageId);
         Type originalType = message.getType();
@@ -279,8 +283,8 @@ public class Link {
             int port = response.getPort();
 
             Message responseMessage = new Message(this.config.getId(), Message.Type.ACK);
-            
             responseMessage.setMessageId(messageId);
+            signMessage(responseMessage);
 
             // ACK is sent without needing for another ACK because
             // we're assuming an eventually synchronous network

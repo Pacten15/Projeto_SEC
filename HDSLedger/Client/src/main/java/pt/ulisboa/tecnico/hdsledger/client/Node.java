@@ -94,16 +94,16 @@ public class Node {
         link.broadcast(appendMessage);
 
         // wait for APPEND response quorum (f + 1 messages) and exit
-        // but create thread to wait for 2f + 1 messages to ACK
-        
+        // but create thread to wait for all ACKs
+
         int received_messages = 0;
         try {
             while (true) {
                 Message message = link.receive();
 
                 if (message.getType() == Message.Type.APPEND) {
-                    System.out.println(MessageFormat.format("{0} - Received APPEND SUCCESS message from {1} with content {2}", client.getId(), message.getSenderId(), ((AppendMessage) message).getMessage()));
                     if (++received_messages >= quorum_f + 1) {
+                        System.out.println(MessageFormat.format("{0} - Received APPEND SUCCESS message from {1} with content {2}", client.getId(), message.getSenderId(), ((AppendMessage) message).getMessage()));
                         break;
                     }
                 }

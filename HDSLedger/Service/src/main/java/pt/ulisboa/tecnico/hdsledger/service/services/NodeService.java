@@ -223,6 +223,8 @@ public class NodeService implements UDPService {
                 + "replying again to make sure it reaches the initial sender", config.getId(), consensusInstance, round));
         }
 
+        stopTimer();
+
         PrepareMessage prepareMessage = new PrepareMessage(prePrepareMessage.getValue());
 
         makeFakePrepare(prepareMessage);
@@ -432,8 +434,6 @@ public class NodeService implements UDPService {
         int preparedRound = instance.getPreparedRound();
         
         String preparedValue = instance.getPreparedValue();
-
-        
 
         instance.setCurrentRound(round);
 
