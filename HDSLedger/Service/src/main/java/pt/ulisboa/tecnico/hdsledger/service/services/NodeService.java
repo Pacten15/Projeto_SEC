@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.service.services;
 
 import java.io.IOException;
+import java.security.PublicKey;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
+import com.google.gson.Gson;
+
 import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
@@ -21,6 +24,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.PrePrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.builder.ConsensusMessageBuilder;
+import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.service.models.InstanceInfo;
 import pt.ulisboa.tecnico.hdsledger.service.models.MessageBucket;
 import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
@@ -440,7 +444,9 @@ public class NodeService implements UDPService {
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
 
-        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue);
+        Map<String, ConsensusMessage> preparedMessages = prepareMessages.getMessages(consensusInstance, preparedRound);
+
+        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(preparedRound, preparedValue, preparedMessages);
 
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Timer expired, sending ROUND_CHANGE message to all nodes", config.getId()));
 
@@ -463,6 +469,8 @@ public class NodeService implements UDPService {
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
         int currentRound = instance.getCurrentRound();
 
+        Map<String, ConsensusMessage> preparedMessages = message.deserializeRoundChangeMessage().getPreparedMessages();
+
         roundChangeMessages.addMessage(message);
         if (consensusInstance <= lastDecidedConsensusInstance.get()) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ROUND_CHANGE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
@@ -474,7 +482,9 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Already received ROUND_CHANGE message for Consensus Instance {1}, Round {2}, ignoring, "
                 + "replying again to make sure it reaches the initial sender", config.getId(), consensusInstance, currentRound));
 
-            RoundChangeMessage roundchangeMessage = new RoundChangeMessage(instance.getRoundChangeRound(), instance.getPreparedValue());
+            
+
+            RoundChangeMessage roundchangeMessage = new RoundChangeMessage(instance.getRoundChangeRound(), instance.getPreparedValue(), preparedMessages);
             ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
                 .setConsensusInstance(consensusInstance)
                 .setRound(currentRound)
@@ -518,7 +528,7 @@ public class NodeService implements UDPService {
                 
                 // Leader broadcasts PRE-PREPARE message
 
-                String value = roundChangeMessages.HighestPrepared(consensusInstance, round).getValue();
+                String value = ((Map.Entry<Integer,String>) roundChangeMessages.HighestPrepared(consensusInstance, round).get(0)).getValue();
                 if (value.equals("")) {
                     value = instance.getInputValue();
                 }
@@ -529,7 +539,7 @@ public class NodeService implements UDPService {
             return;
         }
 
-        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(instance.getPreparedRound(), instance.getPreparedValue());
+        RoundChangeMessage roundchangeMessage = new RoundChangeMessage(instance.getPreparedRound(), instance.getPreparedValue(), preparedMessages);
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
             .setConsensusInstance(consensusInstance)
             .setRound(currentRound)
@@ -539,29 +549,57 @@ public class NodeService implements UDPService {
         this.link.broadcast(consensusMessage);
     }
 
+    public boolean verifySignaturePreparedMessages(Map<String, ConsensusMessage> prepareMessages) {
+        for (ConsensusMessage consensusMessage : prepareMessages.values()) {
+            String messageSignature = consensusMessage.getSignature();
+            consensusMessage.setSignature("");
+            String messageContent = new Gson().toJson(consensusMessage);
+            PublicKey publicKey = CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + consensusMessage.getSenderId() + ".key");
+            System.out.println("\nMessage Content\n\n" + new Gson().toJson(consensusMessage) + "\nMessage Signature\n\n " + messageSignature + "\n\n\n");
+            if(messageSignature != null) {
+                if(!CryptoUtils.verifySignature(messageContent, messageSignature, publicKey) && !config.getId().equals(consensusMessage.getSenderId())) {
+                    System.out.println("\n\n\nInvalid signature\n\n\n");
+                    return false;
+                } else {
+                    System.out.println("\n\n\nValid signature\n\n\n");
+                }
+            }
+        }
+        return true;
+    }
+
     public boolean JustifyRoundChange(int instance, int round)
     {
         int previous_round = round - 1;
         Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), instance, round);
+
+        System.out.println("round: " + round + " previous_round: " + previous_round + " pV: " + pV.get() + "\n\n");
         // no roundchange quorum, no justify
         if (!pV.isPresent()) return false;
-
         // no preparedValue, justify
         if (pV.get().equals("")) return true;
-
         // no prepare quorum, no justify
         Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), instance, previous_round);
         if (!preparedValue.isPresent()) return false;
 
+
+        System.out.println("n messages prepared: \n" + roundChangeMessages.getMessages(instance, round).size());
+
+        
         // highestPrepared != preparedValue, no justify
-        if (roundChangeMessages.HighestPrepared(instance, round).getValue().equals(preparedValue.get())) {
+        List<Object> highestPrepared = roundChangeMessages.HighestPrepared(instance, round);
+        Map.Entry<Integer,String> entry = (Map.Entry<Integer,String>) highestPrepared.get(0);
+        RoundChangeMessage roundChangeMessage = (RoundChangeMessage) highestPrepared.get(1);
+        if (entry.getValue().equals(preparedValue.get())) {
+            if(!verifySignaturePreparedMessages(roundChangeMessage.getPreparedMessages())) return false;
             return true;
         }
+        System.out.println("end justify\n\n");
 
         return false;
     }
 
-    public boolean JustifyPrePrepare(ConsensusMessage message) 
+public boolean JustifyPrePrepare(ConsensusMessage message) 
     {  
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
@@ -579,9 +617,16 @@ public class NodeService implements UDPService {
         if (!preparedValue.isPresent()) return false;
 
         // highestPrepared != preparedValue, no justify
-        if (roundChangeMessages.HighestPrepared(consensusInstance, round).getValue().equals(preparedValue.get())) {
+        List<Object> highestPrepared = roundChangeMessages.HighestPrepared(consensusInstance, round);
+        Map.Entry<Integer,String> entry = (Map.Entry<Integer,String>) highestPrepared.get(0);
+        System.out.println("highestPrepared: " + entry.getValue() + " preparedValue: " + preparedValue.get() + "\n\n");
+        RoundChangeMessage roundChangeMessage = (RoundChangeMessage) highestPrepared.get(1);
+        System.out.println("roundChangeMessage: " + roundChangeMessage.toJson() + "\n\n");
+        if (entry.getValue().equals(preparedValue.get())) {
+            if(!verifySignaturePreparedMessages(roundChangeMessage.getPreparedMessages())) return false;
             return true;
         }
+        System.out.println("end justify\n\n");
 
         return false;
     }

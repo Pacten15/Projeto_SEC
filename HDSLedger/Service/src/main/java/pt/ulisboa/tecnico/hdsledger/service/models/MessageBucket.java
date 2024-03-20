@@ -1,6 +1,8 @@
 package pt.ulisboa.tecnico.hdsledger.service.models;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -132,8 +134,12 @@ public class MessageBucket {
         }).findFirst();
     }
 
-    public Map.Entry<Integer, String> HighestPrepared(int instance, int round) {
+    public List<Object> HighestPrepared(int instance, int round) {
         Map<Integer, String> helperMap = new HashMap<>();
+
+        List<Object> highestPrepareAndRoundChangeMessage = new ArrayList<>();
+
+        RoundChangeMessage[] roundChangeWithHighestPrepare = new RoundChangeMessage[1];
 
         this.getMessages(instance, round).values().forEach((message) -> 
         {
@@ -144,10 +150,20 @@ public class MessageBucket {
             {
                 highestPreparedRound = roundChangeMessage.getPreparedRound();
                 preparedValue = roundChangeMessage.getPreparedValue();
+                roundChangeWithHighestPrepare[0] = roundChangeMessage;
             }
             helperMap.put(highestPreparedRound, preparedValue);
+            
         });
 
-        return helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
+        Map.Entry<Integer, String> highPrepareEntry = helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
+
+        highestPrepareAndRoundChangeMessage.add(highPrepareEntry);
+
+        highestPrepareAndRoundChangeMessage.add(roundChangeWithHighestPrepare[0]);
+
+        return highestPrepareAndRoundChangeMessage;
     }
+
+
 }
