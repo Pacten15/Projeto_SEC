@@ -242,7 +242,7 @@ public class NodeService implements UDPService {
             .build();
 
         //Initializes the timer for the non-leader nodes
-        if (!isLeader(this.config.getId())) {
+        if (!isLeader(this.config.getId())&& JustifyPrePrepare(message)) {
             setTimer(consensusMessage);
         }
 
@@ -554,14 +554,18 @@ public class NodeService implements UDPService {
             String messageSignature = consensusMessage.getSignature();
             consensusMessage.setSignature("");
             String messageContent = new Gson().toJson(consensusMessage);
+            consensusMessage.setSignature(messageSignature);
             PublicKey publicKey = CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + consensusMessage.getSenderId() + ".key");
-            System.out.println("\nMessage Content\n\n" + new Gson().toJson(consensusMessage) + "\nMessage Signature\n\n " + messageSignature + "\n\n\n");
             if(messageSignature != null) {
                 if(!CryptoUtils.verifySignature(messageContent, messageSignature, publicKey) && !config.getId().equals(consensusMessage.getSenderId())) {
-                    System.out.println("\n\n\nInvalid signature\n\n\n");
+                    LOGGER.log(Level.INFO, MessageFormat.format("#################################"+
+                    "{0} - Invalid signature from {1}", config.getId(), consensusMessage.getSenderId())+
+                    "#################################");
                     return false;
                 } else {
-                    System.out.println("\n\n\nValid signature\n\n\n");
+                    LOGGER.log(Level.INFO, MessageFormat.format("#################################"+
+                    "{0} - Valid signature from {1}", config.getId(), consensusMessage.getSenderId())
+                    + "#################################");
                 }
             }
         }
@@ -573,7 +577,6 @@ public class NodeService implements UDPService {
         int previous_round = round - 1;
         Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), instance, round);
 
-        System.out.println("round: " + round + " previous_round: " + previous_round + " pV: " + pV.get() + "\n\n");
         // no roundchange quorum, no justify
         if (!pV.isPresent()) return false;
         // no preparedValue, justify
@@ -582,10 +585,6 @@ public class NodeService implements UDPService {
         Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), instance, previous_round);
         if (!preparedValue.isPresent()) return false;
 
-
-        System.out.println("n messages prepared: \n" + roundChangeMessages.getMessages(instance, round).size());
-
-        
         // highestPrepared != preparedValue, no justify
         List<Object> highestPrepared = roundChangeMessages.HighestPrepared(instance, round);
         Map.Entry<Integer,String> entry = (Map.Entry<Integer,String>) highestPrepared.get(0);
@@ -594,13 +593,11 @@ public class NodeService implements UDPService {
             if(!verifySignaturePreparedMessages(roundChangeMessage.getPreparedMessages())) return false;
             return true;
         }
-        System.out.println("end justify\n\n");
-
         return false;
     }
 
 public boolean JustifyPrePrepare(ConsensusMessage message) 
-    {  
+    { 
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
         if (round == 1) return true;
@@ -613,21 +610,17 @@ public boolean JustifyPrePrepare(ConsensusMessage message)
         if (pV.get().equals("")) return true;
 
         // no prepare quorum, no justify
-        Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), consensusInstance, round);
+        Optional<String> preparedValue = prepareMessages.hasValidPrepareQuorum(config.getId(), consensusInstance, round-1);
         if (!preparedValue.isPresent()) return false;
 
         // highestPrepared != preparedValue, no justify
         List<Object> highestPrepared = roundChangeMessages.HighestPrepared(consensusInstance, round);
         Map.Entry<Integer,String> entry = (Map.Entry<Integer,String>) highestPrepared.get(0);
-        System.out.println("highestPrepared: " + entry.getValue() + " preparedValue: " + preparedValue.get() + "\n\n");
         RoundChangeMessage roundChangeMessage = (RoundChangeMessage) highestPrepared.get(1);
-        System.out.println("roundChangeMessage: " + roundChangeMessage.toJson() + "\n\n");
         if (entry.getValue().equals(preparedValue.get())) {
             if(!verifySignaturePreparedMessages(roundChangeMessage.getPreparedMessages())) return false;
             return true;
         }
-        System.out.println("end justify\n\n");
-
         return false;
     }
 
