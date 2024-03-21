@@ -215,6 +215,7 @@ public class NodeService implements UDPService {
         // check if instance exists
         if (this.instanceInfo.get(consensusInstance) == null) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - @@@ PRE-PREPARE message from {1} does not match existing instances @@@", config.getId(), senderId));
+            return;
         }
 
 
@@ -447,7 +448,7 @@ public class NodeService implements UDPService {
 
         String preparedValue;
 
-        if (instance != null && consensusInstance > lastDecidedConsensusInstance.get()){
+        if (instance != null){
             round = instance.getCurrentRound() + 1;
             preparedRound = instance.getPreparedRound();
         
@@ -455,13 +456,10 @@ public class NodeService implements UDPService {
 
             instance.setCurrentRound(round);
         }
-        else if(instance != null && consensusInstance <= lastDecidedConsensusInstance.get()){ 
-            round = instance.getCurrentRound();
-            preparedRound = instance.getPreparedRound();
-            preparedValue = instance.getPreparedValue();
-        }
-        else{
-            return;
+        else { 
+            round = 0;
+            preparedRound = 0;
+            preparedValue = "";
         }
 
         
@@ -489,17 +487,19 @@ public class NodeService implements UDPService {
     public synchronized void sendCommitMessagesFromInstanceAlreadyDecided(ConsensusMessage message)
     {
         int consensusInstance = message.getConsensusInstance();
-        int round = message.getRound();
+        int commitedRound = instanceInfo.get(consensusInstance).getCommittedRound();
 
-        Optional<String> commitValue = commitMessages.hasValidCommitQuorum(config.getId(), consensusInstance, round);
+        System.out.println("Sending commit messages from instance already decided number: " + consensusInstance + "and round " + commitedRound);
+
+        Optional<String> commitValue = commitMessages.hasValidCommitQuorum(config.getId(), consensusInstance, commitedRound);
         if(!commitValue.isPresent()) return;
-        Map<String, ConsensusMessage> messagesToSend = commitMessages.getMessages(consensusInstance, round);
+        Map<String, ConsensusMessage> messagesToSend = commitMessages.getMessages(consensusInstance, commitedRound);
         for(ConsensusMessage m : messagesToSend.values()){
             if (commitValue.isPresent()) {
                 CommitMessage c = new CommitMessage(commitValue.get());
                 ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.COMMIT)
                     .setConsensusInstance(consensusInstance)
-                    .setRound(round)
+                    .setRound(commitedRound)
                     .setReplyTo(m.getSenderId())
                     .setReplyToMessageId(m.getMessageId())
                     .setMessage(c.toJson())
