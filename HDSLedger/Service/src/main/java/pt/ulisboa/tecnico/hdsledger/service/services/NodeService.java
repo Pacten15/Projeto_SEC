@@ -9,6 +9,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -30,9 +32,6 @@ import pt.ulisboa.tecnico.hdsledger.service.models.MessageBucket;
 import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
-
-import java.util.Timer;
-import java.util.TimerTask;
 
 
 
@@ -192,7 +191,7 @@ public class NodeService implements UDPService {
      */
     public void uponPrePrepare(ConsensusMessage message) 
     {
-
+        
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
         String senderId = message.getSenderId();
@@ -217,6 +216,7 @@ public class NodeService implements UDPService {
         if (this.instanceInfo.get(consensusInstance) == null) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - @@@ PRE-PREPARE message from {1} does not match existing instances @@@", config.getId(), senderId));
         }
+
 
         // Within an instance of the algorithm, each upon rule is triggered at most once
         // for any round r
@@ -282,6 +282,13 @@ public class NodeService implements UDPService {
         if (consensusInstance <= lastDecidedConsensusInstance.get()) 
         {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+                config.getId(), consensusInstance, round));
+            return;
+        }
+
+        if (consensusInstance > lastDecidedConsensusInstance.get() + 1) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PREPARE message for Consensus Instance {1}, Round {2} but process is not ready for it yet, ignoring",
                 config.getId(), consensusInstance, round));
             return;
         }
@@ -367,7 +374,7 @@ public class NodeService implements UDPService {
         if (consensusInstance <= lastDecidedConsensusInstance.get()) 
         {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received COMMIT message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
-                config.getId(), consensusInstance, round));
+            config.getId(), consensusInstance, round));
             return;
         }
 
@@ -434,12 +441,30 @@ public class NodeService implements UDPService {
         int consensusInstance = message.getConsensusInstance();
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
 
-        int round = instance.getCurrentRound() + 1;
-        int preparedRound = instance.getPreparedRound();
-        
-        String preparedValue = instance.getPreparedValue();
+        int round;
 
-        instance.setCurrentRound(round);
+        int preparedRound;
+
+        String preparedValue;
+
+        if (instance != null && consensusInstance > lastDecidedConsensusInstance.get()){
+            round = instance.getCurrentRound() + 1;
+            preparedRound = instance.getPreparedRound();
+        
+            preparedValue = instance.getPreparedValue();
+
+            instance.setCurrentRound(round);
+        }
+        else if(instance != null && consensusInstance <= lastDecidedConsensusInstance.get()){ 
+            round = instance.getCurrentRound();
+            preparedRound = instance.getPreparedRound();
+            preparedValue = instance.getPreparedValue();
+        }
+        else{
+            return;
+        }
+
+        
 
         String senderId = message.getSenderId();
         int senderMessageId = message.getMessageId();
@@ -461,18 +486,55 @@ public class NodeService implements UDPService {
         this.link.broadcast(consensusMessage);
     }
 
+    public synchronized void sendCommitMessagesFromInstanceAlreadyDecided(ConsensusMessage message)
+    {
+        int consensusInstance = message.getConsensusInstance();
+        int round = message.getRound();
+
+        Optional<String> commitValue = commitMessages.hasValidCommitQuorum(config.getId(), consensusInstance, round);
+        if(!commitValue.isPresent()) return;
+        Map<String, ConsensusMessage> messagesToSend = commitMessages.getMessages(consensusInstance, round);
+        for(ConsensusMessage m : messagesToSend.values()){
+            if (commitValue.isPresent()) {
+                CommitMessage c = new CommitMessage(commitValue.get());
+                ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.COMMIT)
+                    .setConsensusInstance(consensusInstance)
+                    .setRound(round)
+                    .setReplyTo(m.getSenderId())
+                    .setReplyToMessageId(m.getMessageId())
+                    .setMessage(c.toJson())
+                    .build();
+                link.send(message.getSenderId(), consensusMessage);
+            }
+        }
+    }
+
     public synchronized void uponRoundChange(ConsensusMessage message) 
     {
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
 
         InstanceInfo instance = this.instanceInfo.get(consensusInstance);
+        
+        if (instance == null) {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ROUND_CHANGE message for Consensus Instance {1}, Round {2} but not processed not in current instance, ignoring",
+                config.getId(), consensusInstance, round));
+            return;
+        }
+
+        if(consensusInstance <= lastDecidedConsensusInstance.get())
+        {
+            System.out.println("Received ROUND_CHANGE message for Consensus Instance " + consensusInstance + ", Round " + round + " but consensus already decided sending commit messages from instance already decided to sender");
+            sendCommitMessagesFromInstanceAlreadyDecided(message);
+            return;
+        }
+
         int currentRound = instance.getCurrentRound();
 
         Map<String, ConsensusMessage> preparedMessages = message.deserializeRoundChangeMessage().getPreparedMessages();
 
         roundChangeMessages.addMessage(message);
-        if (consensusInstance <= lastDecidedConsensusInstance.get()) {
+        if (consensusInstance == lastDecidedConsensusInstance.get()) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ROUND_CHANGE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
                 config.getId(), consensusInstance, round));
             return;

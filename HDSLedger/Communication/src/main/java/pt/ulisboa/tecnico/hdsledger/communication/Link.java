@@ -313,6 +313,11 @@ public class Link {
                 if (consensusMessage.getReplyTo() != null && consensusMessage.getReplyTo().equals(config.getId()))
                     receivedAcks.add(consensusMessage.getReplyToMessageId());
             }
+            case ROUND_CHANGE -> {
+                ConsensusMessage consensusMessage = (ConsensusMessage) message;
+                if (consensusMessage.getReplyTo() != null && consensusMessage.getReplyTo().equals(config.getId()))
+                    receivedAcks.add(consensusMessage.getReplyToMessageId());
+            }
             default -> {}
         }
 
