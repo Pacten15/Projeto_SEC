@@ -1,0 +1,20 @@
+[
+    {   
+        "id": "69",
+        "hostname": "localhost",
+        "port": 3069,
+        "behavior": "NO_SEND_TO_LEADER"
+    },
+    {   
+        "id": "70",
+        "hostname": "localhost",
+        "port": 3070,
+        "behavior": "NO_SEND_TO_LEADER"
+    },
+    {   
+        "id": "71",
+        "hostname": "localhost",
+        "port": 3071,
+        "behavior": "NO_SEND_TO_LEADER"
+    }
+]

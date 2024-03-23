@@ -4,6 +4,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
+import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
@@ -19,7 +20,7 @@ public class Node {
     private static final CustomLogger LOGGER = new CustomLogger(Node.class.getName());
 
     private static String nodesConfigPath = "../Service/src/main/resources/";
-    private static String clientsConfigPath = "src/main/resources/regular_config.json";
+    private static String clientsConfigPath = "src/main/resources/";
 
     private static int quorum_f;
 
@@ -28,7 +29,8 @@ public class Node {
         try {
             // Command line arguments
             String id = args[0];
-            nodesConfigPath += args[1];
+            clientsConfigPath += args[1];
+            nodesConfigPath += args[2];
 
             ProcessConfig[] clientConfigs = new ProcessConfigBuilder().fromFile(clientsConfigPath);
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);
@@ -39,7 +41,7 @@ public class Node {
 
             CryptoUtils.createKeyPair(4096, "../Security/keys/public_key_server_" + id + ".key" , "../Security/keys/private_key_server_" + id + ".key");
 
-            LOGGER.log(Level.INFO, "Running at " + clientConfig.getHostname() + ":" + clientConfig.getPort());
+            LOGGER.log(Level.INFO, "Running at " + clientConfig.getHostname() + ":" + clientConfig.getPort() + "; behavior: " + clientConfig.getBehavior());
 
             for (ProcessConfig node : nodeConfigs) {
                 node.setPort(node.getClientPort());
@@ -68,7 +70,7 @@ public class Node {
                         System.exit(0);
                         break;
                     case "append":
-                        append(input, link, clientConfig);
+                        append(input, link, clientConfig, nodeConfigs);
                         break;
                     default:
                         System.out.println("Unknown command");
@@ -81,7 +83,7 @@ public class Node {
         }
     }
 
-    public static void append(String input, Link link, ProcessConfig client) {
+    public static void append(String input, Link link, ProcessConfig client, ProcessConfig[] nodeConfigs) {
         String[] parts = input.split(" ");
         if (parts.length < 2) {
             System.out.println("Usage: append <message>");
@@ -91,7 +93,21 @@ public class Node {
         // send to all servers
         String messageString = input.substring(parts[0].length() + 1);
         AppendMessage appendMessage = new AppendMessage(client.getId(), messageString);
-        link.broadcast(appendMessage);
+
+        if(client.getBehavior() == Behavior.NO_SEND_TO_LEADER) {
+            System.out.println("Client is not sending messages to the leader");
+            for (ProcessConfig node : nodeConfigs) {
+                if (node.isLeader()) {
+                    continue;
+                }
+                link.send(node.getId(), appendMessage);
+            }
+        }
+        else {
+            link.broadcast(appendMessage);
+        }
+
+        
 
         // wait for APPEND response quorum (f + 1 messages) and exit
         // but create thread to wait for all ACKs

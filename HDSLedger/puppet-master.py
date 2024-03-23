@@ -26,13 +26,14 @@ server_configs = [
 ]
 
 client_configs = [
-    "regular_config.json"
+    "regular_config.json",
+    "no_send_to_leader_config.json"
 ]
 
 
-server_config = server_configs[10]
+server_config = server_configs[0]
 
-client_config = client_configs[0]
+client_config = client_configs[1]
 
 def quit_handler(*args):
 
@@ -64,7 +65,7 @@ with open(f"Client/src/main/resources/{client_config}") as f:
         pid = os.fork()
         if pid == 0:
             os.system(
-                f"{terminal} sh -c \"cd Client; mvn exec:java -Dexec.args='{key['id']} {client_config}' ; sleep 500\"")
+                f"{terminal} sh -c \"cd Client; mvn exec:java -Dexec.args='{key['id']} {client_config} {server_config}' ; sleep 500\"")
             sys.exit()
 
 signal.signal(signal.SIGINT, quit_handler)
