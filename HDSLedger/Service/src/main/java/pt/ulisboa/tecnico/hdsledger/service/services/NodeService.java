@@ -148,6 +148,7 @@ public class NodeService implements UDPService {
      * @param inputValue Value to value agreed upon
      */
     public void startConsensus(String value, String clientId) {
+
         // Set initial consensus values
         int localConsensusInstance = this.consensusInstance.incrementAndGet();
         InstanceInfo existingConsensus = this.instanceInfo.put(localConsensusInstance, new InstanceInfo(value));      
@@ -191,6 +192,14 @@ public class NodeService implements UDPService {
      */
     public void uponPrePrepare(ConsensusMessage message) 
     {
+
+        if (config.getBehavior() == Behavior.SLEEP) {
+            try {
+                Thread.sleep(6000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
         
         int consensusInstance = message.getConsensusInstance();
         int round = message.getRound();
@@ -202,6 +211,13 @@ public class NodeService implements UDPService {
         if (consensusInstance <= lastDecidedConsensusInstance.get()) 
         {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but consensus already decided, ignoring",
+                config.getId(), consensusInstance, round));
+            return;
+        }
+
+        if (consensusInstance > lastDecidedConsensusInstance.get() + 1) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received PRE-PREPARE message for Consensus Instance {1}, Round {2} but process is not ready for it yet, ignoring",
                 config.getId(), consensusInstance, round));
             return;
         }
@@ -379,6 +395,13 @@ public class NodeService implements UDPService {
             return;
         }
 
+        if (consensusInstance > lastDecidedConsensusInstance.get() + 1) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received COMMIT message for Consensus Instance {1}, Round {2} but process is not ready for it yet, ignoring",
+            config.getId(), consensusInstance, round));
+            return;
+        }
+
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received COMMIT message from {1}: Consensus Instance {2}, Round {3}",
             config.getId(), message.getSenderId(), consensusInstance, round));
 
@@ -448,20 +471,11 @@ public class NodeService implements UDPService {
 
         String preparedValue;
 
-        if (instance != null){
-            round = instance.getCurrentRound() + 1;
-            preparedRound = instance.getPreparedRound();
+        round = instance.getCurrentRound() + 1;
+        preparedRound = instance.getPreparedRound();
+        preparedValue = instance.getPreparedValue();
+        instance.setCurrentRound(round);
         
-            preparedValue = instance.getPreparedValue();
-
-            instance.setCurrentRound(round);
-        }
-        else { 
-            round = 0;
-            preparedRound = 0;
-            preparedValue = "";
-        }
-
         
 
         String senderId = message.getSenderId();
@@ -526,6 +540,13 @@ public class NodeService implements UDPService {
         {
             System.out.println("Received ROUND_CHANGE message for Consensus Instance " + consensusInstance + ", Round " + round + " but consensus already decided sending commit messages from instance already decided to sender");
             sendCommitMessagesFromInstanceAlreadyDecided(message);
+            return;
+        }
+
+        if (consensusInstance > lastDecidedConsensusInstance.get() + 1) 
+        {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ROUND_CHANGE message for Consensus Instance {1}, Round {2} but process is not ready for it yet, ignoring",
+                config.getId(), consensusInstance, round));
             return;
         }
 

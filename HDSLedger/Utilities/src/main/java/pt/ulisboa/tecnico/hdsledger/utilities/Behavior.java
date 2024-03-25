@@ -26,6 +26,8 @@ public enum Behavior {
     NO_VERIFICATION("NO_VERIFICATION"),
     //A Leader process start a consensus with a predefined value
     NO_CLIENT("NO_CLIENT"),
+    //A process thats sleeps for too much time
+    SLEEP("SLEEP"),
     //A client process does not send messages to the leader
     NO_SEND_TO_LEADER("NO_SEND_TO_LEADER");
     

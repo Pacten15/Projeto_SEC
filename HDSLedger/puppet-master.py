@@ -33,7 +33,7 @@ client_configs = [
 
 server_config = server_configs[0]
 
-client_config = client_configs[1]
+client_config = client_configs[0]
 
 def quit_handler(*args):
 
