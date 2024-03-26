@@ -13,7 +13,7 @@
         "hostname": "localhost",
         "port": 3002,
         "clientPort": 4002,
-        "behavior": "SLEEP"
+        "behavior": "NORMAL"
     },
     {
         "id": "3",

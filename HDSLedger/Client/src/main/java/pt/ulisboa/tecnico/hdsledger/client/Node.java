@@ -19,7 +19,7 @@ public class Node {
 
     private static final CustomLogger LOGGER = new CustomLogger(Node.class.getName());
 
-    private static String nodesConfigPath = "../Service/src/main/resources/";
+    private static String nodesConfigPath = "../Service/src/main/resources/regular_config.json";
     private static String clientsConfigPath = "src/main/resources/";
 
     private static int quorum_f;
@@ -30,7 +30,6 @@ public class Node {
             // Command line arguments
             String id = args[0];
             clientsConfigPath += args[1];
-            nodesConfigPath += args[2];
 
             ProcessConfig[] clientConfigs = new ProcessConfigBuilder().fromFile(clientsConfigPath);
             ProcessConfig[] nodeConfigs = new ProcessConfigBuilder().fromFile(nodesConfigPath);

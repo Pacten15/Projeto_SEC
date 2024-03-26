@@ -4,6 +4,7 @@ import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
+import pt.ulisboa.tecnico.hdsledger.service.models.Block;
 import pt.ulisboa.tecnico.hdsledger.service.services.ClientService;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
@@ -59,12 +60,12 @@ public class Node {
 
             if (leaderConfig.getBehavior() == Behavior.NO_CLIENT || leaderConfig.getBehavior() == Behavior.LEADER_PRETENDING){
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
-                nodeService.startConsensus("fake value", "0");
+                nodeService.startConsensus(new Block(), Arrays.asList("fake value"));
             }
 
             if (nodeConfig.getBehavior() == Behavior.FAKE_PRE_PREPARE){
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
-                nodeService.sendFakePrePrepareMessage("fake value");
+                nodeService.sendFakePrePrepareMessage(new Block());
             }
 
         } catch (Exception e) {

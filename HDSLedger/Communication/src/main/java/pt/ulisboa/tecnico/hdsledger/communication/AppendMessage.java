@@ -4,6 +4,8 @@ public class AppendMessage extends Message {
 
     private String message;
 
+
+
     public AppendMessage(String clientId, String message) {
         super(clientId, Type.APPEND);
         this.message = message;
