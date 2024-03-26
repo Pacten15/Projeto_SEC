@@ -6,6 +6,8 @@ import java.text.MessageFormat;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +16,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.models.Block;
+import pt.ulisboa.tecnico.hdsledger.service.models.Account;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
@@ -35,12 +38,19 @@ public class ClientService implements UDPService {
 
     private final int maxBlockMessages = 16;
     private Block block = new Block();
-    private List<String> clientList    = new ArrayList<String>();
+    private List<String> clientList = new ArrayList<String>();
 
-    public ClientService(Link linkToClients, ProcessConfig nodeConfig, NodeService nodeService) {
+    private Map<String, Account> accounts = new HashMap<>();
+
+    public ClientService(Link linkToClients, ProcessConfig nodeConfig, ProcessConfig[] nodeConfigs, NodeService nodeService) {
         this.link = linkToClients;
         this.config = nodeConfig;
         this.service = nodeService;
+        // Create accounts for each node
+        for (ProcessConfig node : nodeConfigs) {
+            accounts.put(node.getId(), new Account(node.getId()));
+        }
+
     }
 
     private void startConsensus() {
@@ -91,6 +101,8 @@ public class ClientService implements UDPService {
         }
         appendRunning.set(false);
     }
+
+
 
 
 

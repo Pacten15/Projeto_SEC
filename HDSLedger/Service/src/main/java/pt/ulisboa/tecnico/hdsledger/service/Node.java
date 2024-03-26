@@ -53,7 +53,9 @@ public class Node {
 
             // Services that implement listen from UDPService
             NodeService nodeService = new NodeService(linkToNodes, linkToClients, nodeConfig, leaderConfig, nodeConfigs);
-            ClientService clientService = new ClientService(linkToClients, nodeConfig, nodeService);
+            ClientService clientService = new ClientService(linkToClients, nodeConfig, nodeConfigs, nodeService);
+
+
 
             nodeService.listen();
             clientService.listen();

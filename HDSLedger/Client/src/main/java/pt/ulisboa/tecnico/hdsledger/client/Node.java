@@ -116,7 +116,7 @@ public class Node {
             while (true) {
                 Message message = link.receive();
 
-                if (message.getType() == Message.Type.APPEND) {
+                if (message.getType() == Message.Type.RESPONSE) {
                     if (++received_messages >= quorum_f + 1) {
                         System.out.println(MessageFormat.format("{0} - Received APPEND SUCCESS message from {1} with content {2}", client.getId(), message.getSenderId(), ((AppendMessage) message).getMessage()));
                         break;

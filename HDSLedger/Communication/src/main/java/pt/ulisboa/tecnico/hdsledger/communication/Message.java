@@ -11,10 +11,14 @@ public class Message implements Serializable {
     // Message type
     private Type type;
 
+    //Message Nonce
+    private int nonce;
+
+    // Message signature
     private String signature;
  
     public enum Type {
-        APPEND, PRE_PREPARE, PREPARE, COMMIT, ROUND_CHANGE, ACK, IGNORE;
+        TRANSFER, CHECK_BALANCE,APPEND, RESPONSE, PRE_PREPARE, PREPARE, COMMIT, ROUND_CHANGE, ACK, IGNORE;
     }
 
     public Message(String senderId, Type type) {
@@ -52,5 +56,13 @@ public class Message implements Serializable {
 
     public void setSignature(String signature) {
         this.signature = signature;
+    }
+
+    public int getNonce() {
+        return nonce;
+    }
+
+    public void setNonce(int nonce) {
+        this.nonce = nonce;
     }
 }
