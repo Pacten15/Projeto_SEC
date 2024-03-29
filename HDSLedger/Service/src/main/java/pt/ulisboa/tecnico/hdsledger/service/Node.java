@@ -52,8 +52,8 @@ public class Node {
             Link linkToClients = new Link(nodeConfig, nodeConfig.getClientPort(), clientConfigs, AppendMessage.class);
 
             // Services that implement listen from UDPService
-            NodeService nodeService = new NodeService(linkToNodes, linkToClients, nodeConfig, leaderConfig, nodeConfigs);
-            ClientService clientService = new ClientService(linkToClients, nodeConfig, nodeConfigs, nodeService);
+            NodeService nodeService = new NodeService(linkToNodes, linkToClients, nodeConfig, leaderConfig, nodeConfigs, clientConfigs);
+            ClientService clientService = new ClientService(linkToClients, nodeConfig, nodeService);
 
 
 
@@ -69,6 +69,8 @@ public class Node {
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
                 nodeService.sendFakePrePrepareMessage(new Block());
             }
+
+            nodeService.printAccountsState();
 
         } catch (Exception e) {
             e.printStackTrace();

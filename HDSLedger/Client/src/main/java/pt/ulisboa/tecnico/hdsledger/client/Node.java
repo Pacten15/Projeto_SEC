@@ -38,7 +38,7 @@ public class Node {
             // count the number of nodes
             quorum_f = Math.floorDiv(nodeConfigs.length - 1, 3);
 
-            CryptoUtils.createKeyPair(4096, "../Security/keys/public_key_server_" + id + ".key" , "../Security/keys/private_key_server_" + id + ".key");
+            CryptoUtils.createKeyPair(4096, "../Security/keys/public_key_client_" + id + ".key" , "../Security/keys/private_key_client_" + id + ".key");
 
             LOGGER.log(Level.INFO, "Running at " + clientConfig.getHostname() + ":" + clientConfig.getPort() + "; behavior: " + clientConfig.getBehavior());
 

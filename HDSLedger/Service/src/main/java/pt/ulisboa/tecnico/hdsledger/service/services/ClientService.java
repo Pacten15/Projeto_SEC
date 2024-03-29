@@ -16,7 +16,6 @@ import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.models.Block;
-import pt.ulisboa.tecnico.hdsledger.service.models.Account;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
@@ -40,17 +39,11 @@ public class ClientService implements UDPService {
     private Block block = new Block();
     private List<String> clientList = new ArrayList<String>();
 
-    private Map<String, Account> accounts = new HashMap<>();
 
-    public ClientService(Link linkToClients, ProcessConfig nodeConfig, ProcessConfig[] nodeConfigs, NodeService nodeService) {
+    public ClientService(Link linkToClients, ProcessConfig nodeConfig, NodeService nodeService) {
         this.link = linkToClients;
         this.config = nodeConfig;
         this.service = nodeService;
-        // Create accounts for each node
-        for (ProcessConfig node : nodeConfigs) {
-            accounts.put(node.getId(), new Account(node.getId()));
-        }
-
     }
 
     private void startConsensus() {
