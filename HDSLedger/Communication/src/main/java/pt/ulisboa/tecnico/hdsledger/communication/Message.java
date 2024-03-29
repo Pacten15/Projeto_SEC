@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.communication;
 
 import java.io.Serializable;
+import com.google.gson.Gson;
 
 public class Message implements Serializable {
 
@@ -18,7 +19,7 @@ public class Message implements Serializable {
     private String signature;
  
     public enum Type {
-        TRANSFER, CHECK_BALANCE,APPEND, RESPONSE, PRE_PREPARE, PREPARE, COMMIT, ROUND_CHANGE, ACK, IGNORE;
+        TRANSFER, CHECK_BALANCE, APPEND, RESPONSE, PRE_PREPARE, PREPARE, COMMIT, ROUND_CHANGE, ACK, IGNORE;
     }
 
     public Message(String senderId, Type type) {
@@ -64,5 +65,13 @@ public class Message implements Serializable {
 
     public void setNonce(int nonce) {
         this.nonce = nonce;
+    }
+
+    public String toJson() {
+        return new Gson().toJson(this);
+    }
+
+    public static Message fromJson(String json) {
+        return new Gson().fromJson(json, Message.class);
     }
 }

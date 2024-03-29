@@ -7,16 +7,16 @@ public class InstanceInfo {
     // State Variables
     private int currentRound = 1;
     private int preparedRound = -1;
-    private Block preparedValue = new Block();
-    private Block inputBlock;
+    private String preparedValue = "";
+    private String inputValue;
 
     private CommitMessage commitMessage;
     private int committedRound = -1;
 
     private int roundChangeRound = -1;
 
-    public InstanceInfo(Block inputBlock) {
-        this.inputBlock = inputBlock;
+    public InstanceInfo(String inputValue) {
+        this.inputValue = inputValue;
     }
 
     public int getCurrentRound() {
@@ -35,20 +35,20 @@ public class InstanceInfo {
         this.preparedRound = preparedRound;
     }
 
-    public Block getPreparedValue() {
+    public String getPreparedValue() {
         return preparedValue;
     }
 
-    public void setPreparedValue(Block preparedValue) {
+    public void setPreparedValue(String preparedValue) {
         this.preparedValue = preparedValue;
     }
 
-    public Block getInputValue() {
-        return inputBlock;
+    public String getInputValue() {
+        return inputValue;
     }
 
-    public void setInputValue(Block inputValue) {
-        this.inputBlock = inputValue;
+    public void setInputValue(String inputValue) {
+        this.inputValue = inputValue;
     }
 
     public int getCommittedRound() {

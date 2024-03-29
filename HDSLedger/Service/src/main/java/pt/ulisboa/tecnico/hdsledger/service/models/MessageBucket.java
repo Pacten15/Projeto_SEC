@@ -54,38 +54,38 @@ public class MessageBucket {
         this.getMessages(consensusInstance, round).put(message.getSenderId(), message);
     }
 
-    public Optional<Block> hasValidPrepareQuorum(String nodeId, int instance, int round) {
+    public Optional<String> hasValidPrepareQuorum(String nodeId, int instance, int round) {
         // Create mapping of value to frequency
-        HashMap<Block, Integer> frequency = new HashMap<>();
+        HashMap<String, Integer> frequency = new HashMap<>();
         this.getMessages(instance, round).values().forEach((message) -> {
             PrepareMessage prepareMessage = message.deserializePrepareMessage();
-            Block value = Block.fromJson(prepareMessage.getValue());
+            String value = prepareMessage.getValue();
             frequency.put(value, frequency.getOrDefault(value, 0) + 1);
         });
 
         // Only one value (if any, thus the optional) will have a frequency
         // greater than or equal to the quorum size
-        return frequency.entrySet().stream().filter((Map.Entry<Block, Integer> entry) -> {
+        return frequency.entrySet().stream().filter((Map.Entry<String, Integer> entry) -> {
             return entry.getValue() >= quorumSize;
-        }).map((Map.Entry<Block, Integer> entry) -> {
+        }).map((Map.Entry<String, Integer> entry) -> {
             return entry.getKey();
         }).findFirst();
     }
 
-    public Optional<Block> hasValidCommitQuorum(String nodeId, int instance, int round) {
+    public Optional<String> hasValidCommitQuorum(String nodeId, int instance, int round) {
         // Create mapping of value to frequency
-        HashMap<Block, Integer> frequency = new HashMap<>();
+        HashMap<String, Integer> frequency = new HashMap<>();
         this.getMessages(instance, round).values().forEach((message) -> {
             CommitMessage commitMessage = message.deserializeCommitMessage();
-            Block value = Block.fromJson(commitMessage.getValue());
+            String value = commitMessage.getValue();
             frequency.put(value, frequency.getOrDefault(value, 0) + 1);
         });
 
         // Only one value (if any, thus the optional) will have a frequency
         // greater than or equal to the quorum size
-        return frequency.entrySet().stream().filter((Map.Entry<Block, Integer> entry) -> {
+        return frequency.entrySet().stream().filter((Map.Entry<String, Integer> entry) -> {
             return entry.getValue() >= quorumSize;
-        }).map((Map.Entry<Block, Integer> entry) -> {
+        }).map((Map.Entry<String, Integer> entry) -> {
             return entry.getKey();
         }).findFirst();
     }
@@ -113,28 +113,28 @@ public class MessageBucket {
         }
     }
 
-    public Optional<Block> hasValidRoundChangeQuorum(String nodeId, int instance, int round) {
+    public Optional<String> hasValidRoundChangeQuorum(String nodeId, int instance, int round) {
         // Create mapping of value to frequency
-        HashMap<Block, Integer> frequency = new HashMap<>();
+        HashMap<String, Integer> frequency = new HashMap<>();
         this.getMessages(instance, round).values().forEach((message) -> 
         {
             RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
-            Block value = Block.fromJson(roundChangeMessage.getPreparedValue());
+            String value = roundChangeMessage.getPreparedValue();
             System.out.println("roundChangeMessage prepared value: '" + value + "'");
             frequency.put(value, frequency.getOrDefault(value, 0) + 1);
         });
         
         // Only one value (if any, thus the optional) will have a frequency
         // greater than or equal to the quorum size
-        return frequency.entrySet().stream().filter((Map.Entry<Block, Integer> entry) -> {
+        return frequency.entrySet().stream().filter((Map.Entry<String, Integer> entry) -> {
             return entry.getValue() >= quorumSize;
-        }).map((Map.Entry<Block, Integer> entry) -> {
+        }).map((Map.Entry<String, Integer> entry) -> {
             return entry.getKey();
         }).findFirst();
     }
 
     public List<Object> HighestPrepared(int instance, int round) {
-        Map<Integer, Block> helperMap = new HashMap<>();
+        Map<Integer, String> helperMap = new HashMap<>();
 
         List<Object> highestPrepareAndRoundChangeMessage = new ArrayList<>();
 
@@ -143,18 +143,18 @@ public class MessageBucket {
         this.getMessages(instance, round).values().forEach((message) -> 
         {
             int highestPreparedRound = 0;
-            Block preparedValue = null;
+            String preparedValue = "";
             RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
             if(roundChangeMessage.getPreparedRound() > highestPreparedRound) {
                 highestPreparedRound = roundChangeMessage.getPreparedRound();
-                preparedValue = Block.fromJson(roundChangeMessage.getPreparedValue());
+                preparedValue = roundChangeMessage.getPreparedValue();
                 roundChangeWithHighestPrepare[0] = roundChangeMessage;
             }
             helperMap.put(highestPreparedRound, preparedValue);
             
         });
 
-        Map.Entry<Integer, Block> highPrepareEntry = helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
+        Map.Entry<Integer, String> highPrepareEntry = helperMap.entrySet().stream().max(Map.Entry.comparingByKey()).get();
 
         highestPrepareAndRoundChangeMessage.add(highPrepareEntry);
 

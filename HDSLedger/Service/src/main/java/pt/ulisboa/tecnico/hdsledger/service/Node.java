@@ -67,7 +67,7 @@ public class Node {
 
             if (nodeConfig.getBehavior() == Behavior.FAKE_PRE_PREPARE){
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
-                nodeService.sendFakePrePrepareMessage(new Block());
+                nodeService.sendFakePrePrepareMessage("fake value");
             }
 
             nodeService.printAccountsState();
