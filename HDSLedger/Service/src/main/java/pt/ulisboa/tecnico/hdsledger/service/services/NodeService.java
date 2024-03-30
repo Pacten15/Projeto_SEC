@@ -491,17 +491,14 @@ public class NodeService implements UDPService {
 
             //Change account states
             for (String receivedMessage : value.getMessages()) {
-                Message generalizedMessage = Message.fromJson(receivedMessage);
-                ClientMessage clientMessage = (ClientMessage) generalizedMessage;
 
-                if (clientMessage.getType() == Message.Type.TRANSFER) {
-                    TransferMessageRequest transferMessage = clientMessage.deserializeTransferMessageRequest();
-
-                    Account senderAccount = accounts.get(transferMessage.getSourceId());
-                    Account receiverAccount = accounts.get(transferMessage.getDestId());
-                    senderAccount.decreaseBalance(transferMessage.getAmount());
-                    receiverAccount.increaseBalance(transferMessage.getAmount());
-                }
+                System.out.println("\n\n\nReceived message: " + receivedMessage);
+                TransferMessageRequest transferMessage = new Gson().fromJson(receivedMessage, TransferMessageRequest.class);
+                System.out.println("Transfer message: " + transferMessage.toJson());
+                Account senderAccount = accounts.get(transferMessage.getSourceId());
+                Account receiverAccount = accounts.get(transferMessage.getDestId());
+                senderAccount.decreaseBalance(transferMessage.getAmount());
+                receiverAccount.increaseBalance(transferMessage.getAmount());
             }
 
             for (String currentClientId : currentClients) {
@@ -512,7 +509,7 @@ public class NodeService implements UDPService {
                 LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction SUCCESS message to {1}", config.getId(), currentClientId));
             }
 
-            printAccountsState();
+            
 
             // Append value to the ledger (must be synchronized to be thread-safe)
             synchronized (ledger) {
@@ -534,8 +531,10 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO,
                     MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                             config.getId(), consensusInstance, round, true));
-
+                        
             
+            printAccountsState();
+
             currentClients.clear();
 
             // reset timer

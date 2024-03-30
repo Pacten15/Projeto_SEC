@@ -4,7 +4,7 @@ public class ResponseMessage extends Message{
 
     private String message;
 
-    public ResponseMessage(String senderId, Type type, String message) {
+    public ResponseMessage(String senderId, String message) {
         super(senderId, Type.RESPONSE);
         this.message = message;
     }

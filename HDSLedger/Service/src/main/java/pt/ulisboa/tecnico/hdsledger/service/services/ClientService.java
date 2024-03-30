@@ -18,7 +18,9 @@ import java.util.List;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
+import pt.ulisboa.tecnico.hdsledger.communication.ResponseMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.TransferMessageRequest;
+import pt.ulisboa.tecnico.hdsledger.communication.Message.Type;
 import pt.ulisboa.tecnico.hdsledger.service.models.Block;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
@@ -39,7 +41,7 @@ public class ClientService implements UDPService {
     private AtomicBoolean blockTimerRunning = new AtomicBoolean(false);
     private Timer blockTimer = new Timer();
 
-    private final int maxBlockMessages = 6;
+    private final int maxBlockMessages = 1;
     private Block block = new Block();
     private List<String> clientList = new ArrayList<String>();
 
@@ -81,17 +83,23 @@ public class ClientService implements UDPService {
             }
         }
 
-        // if not running, start block timer
-        if (blockTimerRunning.compareAndSet(false, true)) {
-            blockTimer = new Timer();
-            blockTimer.schedule(new TimerTask() {
-                public void run() { startConsensus(); }
-            }, 1000);
-        }
+        //// if not running, start block timer
+        //if (blockTimerRunning.compareAndSet(false, true)) {
+        //    blockTimer = new Timer();
+        //    blockTimer.schedule(new TimerTask() {
+        //        public void run() { startConsensus(); }
+        //    }, 1000);
+        //}
 
         // add message to block
-        block.addMessage(message.toJson());
+        block.addMessage(message.getMessage());
         clientList.add(message.getSenderId());
+
+        ResponseMessage response = new ResponseMessage(config.getId(), "Message received");
+        
+       
+        link.send(message.getSenderId(), response);
+
 
         // if block is full, start consensus and clear block
         if (block.size() == maxBlockMessages) {
@@ -104,6 +112,8 @@ public class ClientService implements UDPService {
             block = new Block();
         }
         clientRequestRunning.set(false);
+
+
     }
 
 

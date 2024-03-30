@@ -130,7 +130,7 @@ public class Node {
 
                 if (message.getType() == Message.Type.RESPONSE) {
                     if (++received_messages >= quorum_f + 1) {
-                        System.out.println(MessageFormat.format("{0} - Received Successful message from {1} with content {2}", client.getId(), message.getSenderId(), ((ResponseMessage) message).getMessage()));
+                        System.out.println(MessageFormat.format("{0} - Received Successful message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
                         break;
                     }
                 }

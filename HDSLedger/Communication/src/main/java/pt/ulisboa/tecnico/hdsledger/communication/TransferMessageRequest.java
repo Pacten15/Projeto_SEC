@@ -33,4 +33,5 @@ public class TransferMessageRequest extends Message {
     public String toJson() {
         return new Gson().toJson(this);
     }
+
 }

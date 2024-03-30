@@ -27,8 +27,16 @@ public class ClientMessage extends Message{
         return new Gson().fromJson(this.message, CheckBalanceRequest.class);
     }
 
+    public ResponseMessage deserializeResponseMessage() {
+        return new Gson().fromJson(this.message, ResponseMessage.class);
+    }
+
     public String toJson() {
         return new Gson().toJson(this);
+    }
+
+    public static ClientMessage fromJson(String json) {
+        return new Gson().fromJson(json, ClientMessage.class);
     }
 
     @Override
