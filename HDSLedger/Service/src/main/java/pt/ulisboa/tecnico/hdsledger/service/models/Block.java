@@ -26,7 +26,7 @@ public class Block {
         return blockMessages;
     }
 
-    public void addMessage(String blockMessage) {
+    public void add(String blockMessage) {
         this.blockMessages.add(blockMessage);
     }
 

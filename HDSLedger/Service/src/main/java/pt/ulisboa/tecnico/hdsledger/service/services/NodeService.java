@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.service.services;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.security.PublicKey;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -13,7 +14,6 @@ import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
@@ -46,13 +46,13 @@ public class NodeService implements UDPService {
 
     // Current node is leader
     private final ProcessConfig config;
-    // Leader configuration
-    private ProcessConfig leaderConfig;
 
     // Link to communicate with nodes
     private final Link link;
-
     private final Link clientLink;
+
+    // Mempool to store transactions
+    private final Mempool mempool;
 
     // Consensus instance -> Round -> List of prepare messages
     private final MessageBucket prepareMessages;
@@ -79,19 +79,21 @@ public class NodeService implements UDPService {
     // List of accounts a node has
     private final Map<String, Account> accounts = new ConcurrentHashMap<>();
 
+    private final BigDecimal fee = new BigDecimal(1);
+
     // Ledger (for now, just a list of strings)
     private ArrayList<Block> ledger = new ArrayList<>();
 
     private ArrayList<Integer> seenNounces = new ArrayList<>();
 
     public NodeService(Link link, Link clientLink, ProcessConfig config,
-            ProcessConfig leaderConfig, ProcessConfig[] nodesConfig, ProcessConfig[] clientsConfig) {
+            ProcessConfig[] nodesConfig, ProcessConfig[] clientsConfig, Mempool mempool) {
 
         this.link = link;
         this.clientLink = clientLink;
         this.config = config;
-        this.leaderConfig = leaderConfig;
         this.nodesConfig = nodesConfig;
+        this.mempool = mempool;
 
         createAccounts(clientsConfig);
 
@@ -100,11 +102,23 @@ public class NodeService implements UDPService {
         this.roundChangeMessages = new MessageBucket(nodesConfig.length);
     }
 
+    private String Leader(int instance, int round) {
+        String[] nodeIds = Arrays.stream(nodesConfig).map(ProcessConfig::getId).toArray(String[]::new);
+        Arrays.sort(nodeIds);
+
+        // instance doesn't matter, only round.
+        // round is 1-indexed, so we need to subtract 1
+        return nodeIds[(round - 1) % nodeIds.length];
+    }
+
+    private boolean isLeader(String id, int instance, int round) {
+        return Leader(instance, round).equals(id);
+    }
+
     public String getPublicKeyServerB64EncodedString(String id) {
         PublicKey publicKey = CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + id + ".key");
         return Base64.getEncoder().encodeToString(publicKey.getEncoded());
     }
-    
 
     public synchronized void sleep(int time) {
         try {
@@ -161,23 +175,6 @@ public class NodeService implements UDPService {
         }, 5 * 1000 * message.getRound());
     }
 
-    private boolean isLeader(String id) {
-        return this.leaderConfig.getId().equals(id);
-    }
-
-    private String nextLeader() {
-        // make list of node IDs, sort them, pick the current and print the next in line
-        String[] nodeIds = Arrays.stream(nodesConfig).map(ProcessConfig::getId).toArray(String[]::new);
-        Arrays.sort(nodeIds);
-        int index = Arrays.binarySearch(nodeIds, leaderConfig.getId());
-        String next = nodeIds[(index + 1) % nodeIds.length];
-        return next;
-    }
-
-    private void makeLeader(String id) {
-        this.leaderConfig = Arrays.stream(nodesConfig).filter(c -> c.getId().equals(id)).findAny().get();
-    }
-
     public ConsensusMessage createConsensusMessage(String value, int instance, int round) {
         PrePrepareMessage prePrepareMessage = new PrePrepareMessage(value);
 
@@ -228,7 +225,7 @@ public class NodeService implements UDPService {
                 instance.getCurrentRound());
 
         // Leader broadcasts PRE-PREPARE message
-        if (isLeader(this.config.getId())) {
+        if (isLeader(this.config.getId(), localConsensusInstance, instance.getCurrentRound())) {
             LOGGER.log(Level.INFO,
                     MessageFormat.format("{0} - Node is leader, sending PRE-PREPARE message", config.getId()));
             this.link.broadcast(consensusMessage);
@@ -283,7 +280,7 @@ public class NodeService implements UDPService {
         }
 
         // Verify if pre-prepare was sent by leader or is justified
-        if (!isLeader(senderId) && !JustifyPrePrepare(message))
+        if (!isLeader(senderId, consensusInstance, round) && !JustifyPrePrepare(message))
             return;
 
         // check if instance exists
@@ -320,7 +317,7 @@ public class NodeService implements UDPService {
                 .build();
 
         // Initializes the timer for the non-leader nodes
-        if (!isLeader(this.config.getId()) && JustifyPrePrepare(message)) {
+        if (!isLeader(this.config.getId(), consensusInstance, round) && JustifyPrePrepare(message)) {
             setConsensusTimer(consensusMessage);
         }
 
@@ -494,12 +491,15 @@ public class NodeService implements UDPService {
 
             Block value = Block.fromJson(commitValue.get());
 
-            //Change account states
+            // ###
+            //  Change account states and remove transactions from mempool
+            // ###
             for (String receivedMessage : value.getMessages()) {
 
                 System.out.println("Received message: " + receivedMessage);
 
                 ClientMessage clientMessage = new Gson().fromJson(receivedMessage, ClientMessage.class);
+                mempool.remove(clientMessage);
 
                 if(clientMessage.getType() == Message.Type.TRANSFER) {
                     TransferMessageRequest transferMessage = new Gson().fromJson(clientMessage.getMessage(), TransferMessageRequest.class);
@@ -508,9 +508,17 @@ public class NodeService implements UDPService {
                     Account receiverAccount = accounts.get(transferMessage.getDestId());
                     senderAccount.decreaseBalance(transferMessage.getAmount());
                     receiverAccount.increaseBalance(transferMessage.getAmount());
+
+                    // fee
+                    Account leaderAccount = accounts.get(Leader(consensusInstance, round));
+                    senderAccount.decreaseBalance(this.fee);
+                    leaderAccount.increaseBalance(this.fee);
                 }
             }
 
+            // ###
+            //  Message clients
+            // ###
             for (String currentClientId : currentClients) {
                 ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
                         "Success on block " + value.getInstance());
@@ -699,10 +707,10 @@ public class NodeService implements UDPService {
                             "{0} - Reached a Quorum of ROUND_CHANGE\n" +
                             "####################################",
                     config.getId()));
-            makeLeader(nextLeader());
-            LOGGER.log(Level.INFO, leaderConfig.getId() + " is the new leader");
+            LOGGER.log(Level.INFO, Leader(consensusInstance, currentRound) + " is the new leader");
 
-            if (isLeader(config.getId()) && JustifyRoundChange(consensusInstance, instance.getCurrentRound())) {
+            if (isLeader(config.getId(), consensusInstance, currentRound) &&
+                JustifyRoundChange(consensusInstance, instance.getCurrentRound())) {
 
                 LOGGER.log(Level.INFO, MessageFormat.format(
                         "###################\n" +
@@ -880,9 +888,11 @@ public class NodeService implements UDPService {
      * @param message ConsensusMessage that we want to pretend to be the leader
      */
     public void makeMeLeaderCP(ConsensusMessage message) {
-        if (!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_LEADER_C_P) {
+        int instance = message.getConsensusInstance();
+        int round = message.getRound();
+        if (!isLeader(config.getId(), instance, round) && config.getBehavior() == Behavior.FAKE_LEADER_C_P) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making me leader", config.getId()));
-            message.setSenderId(this.leaderConfig.getId());
+            message.setSenderId(Leader(instance, round));
         }
     }
 
@@ -893,7 +903,9 @@ public class NodeService implements UDPService {
      * the id of the node that we want to make leader
      */
     public void sendMessageAsAnotherServer(ConsensusMessage message, String id) {
-        if (isLeader(config.getId()) && config.getBehavior() == Behavior.LEADER_PRETENDING) {
+        int instance = message.getConsensusInstance();
+        int round = message.getRound();
+        if (isLeader(config.getId(), instance, round) && config.getBehavior() == Behavior.LEADER_PRETENDING) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making leader the non leader", id));
             message.setSenderId(id);
             PrePrepareMessage prePrepareMessage = message.deserializePrePrepareMessage();
@@ -924,22 +936,6 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake prepare", config.getId()));
             message.setValue("fake prepare");
 
-        }
-    }
-
-    /*
-     * Make fake pre prepare messages to send to the other nodes
-     * 
-     * @param message ConsensusMessage that we want to change
-     */
-    public void sendFakePrePrepareMessage(String value) {
-        if (!isLeader(config.getId()) && config.getBehavior() == Behavior.FAKE_PRE_PREPARE) {
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Fake pre prepare message", config.getId()));
-            int localConsensusInstance = this.consensusInstance.incrementAndGet();
-            this.instanceInfo.put(localConsensusInstance, new InstanceInfo(value));
-
-            InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
-            this.link.broadcast(this.createConsensusMessage(value, localConsensusInstance, instance.getCurrentRound()));
         }
     }
 

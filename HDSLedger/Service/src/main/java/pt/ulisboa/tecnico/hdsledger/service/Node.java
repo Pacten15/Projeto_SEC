@@ -6,6 +6,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.service.models.Block;
 import pt.ulisboa.tecnico.hdsledger.service.services.ClientService;
+import pt.ulisboa.tecnico.hdsledger.service.services.Mempool;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
@@ -51,9 +52,11 @@ public class Node {
             Link linkToNodes = new Link(nodeConfig, nodeConfig.getPort(), nodeConfigs, ConsensusMessage.class);
             Link linkToClients = new Link(nodeConfig, nodeConfig.getClientPort(), clientConfigs, ClientMessage.class);
 
+            Mempool mempool = new Mempool(clientConfigs.length);
+
             // Services that implement listen from UDPService
-            NodeService nodeService = new NodeService(linkToNodes, linkToClients, nodeConfig, leaderConfig, nodeConfigs, clientConfigs);
-            ClientService clientService = new ClientService(linkToClients, nodeConfig, nodeService);
+            NodeService nodeService = new NodeService(linkToNodes, linkToClients, nodeConfig, nodeConfigs, clientConfigs, mempool);
+            ClientService clientService = new ClientService(linkToClients, nodeConfig, nodeService, mempool);
 
 
 
@@ -63,11 +66,6 @@ public class Node {
             if (leaderConfig.getBehavior() == Behavior.NO_CLIENT || leaderConfig.getBehavior() == Behavior.LEADER_PRETENDING){
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
                 nodeService.startConsensus(new Block(), Arrays.asList("fake value"));
-            }
-
-            if (nodeConfig.getBehavior() == Behavior.FAKE_PRE_PREPARE){
-                LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
-                nodeService.sendFakePrePrepareMessage("fake value");
             }
 
             nodeService.printAccountsState();

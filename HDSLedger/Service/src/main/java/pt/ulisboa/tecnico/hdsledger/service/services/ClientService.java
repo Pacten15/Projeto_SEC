@@ -3,26 +3,18 @@ package pt.ulisboa.tecnico.hdsledger.service.services;
 
 import java.io.IOException;
 import java.text.MessageFormat;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.logging.Level;
 
 import com.google.gson.Gson;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
-import pt.ulisboa.tecnico.hdsledger.communication.ResponseMessage;
-import pt.ulisboa.tecnico.hdsledger.communication.TransferMessageRequest;
-import pt.ulisboa.tecnico.hdsledger.communication.Message.Type;
 import pt.ulisboa.tecnico.hdsledger.service.models.Block;
-import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 
@@ -31,84 +23,36 @@ public class ClientService implements UDPService {
     private static final CustomLogger LOGGER = new CustomLogger(ClientService.class.getName());
 
     private final Link link;
-
     private final ProcessConfig config;
-
     private final NodeService service;
+    private final Mempool mempool;
 
-    private AtomicBoolean clientRequestRunning = new AtomicBoolean(false);
-    private AtomicBoolean consensusRunning = new AtomicBoolean(false);
-    private AtomicBoolean blockTimerRunning = new AtomicBoolean(false);
-    private Timer blockTimer = new Timer();
-
-    private final int maxBlockMessages = 3;
-    private Block block = new Block();
     private List<String> clientList = new ArrayList<String>();
 
 
-    public ClientService(Link linkToClients, ProcessConfig nodeConfig, NodeService nodeService) {
+    public ClientService(Link linkToClients, ProcessConfig nodeConfig, NodeService nodeService, Mempool mempool) {
         this.link = linkToClients;
         this.config = nodeConfig;
         this.service = nodeService;
-    }
-
-    private void startConsensus() {
-        // wait for consensus to finish, then start a new one
-        while (!consensusRunning.compareAndSet(false, true)) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        blockTimer.cancel();
-        blockTimer = new Timer();
-        blockTimerRunning.set(false);
-
-        this.service.startConsensus(block, clientList);
-        clientList.clear();
-        block.clear();
-
-        consensusRunning.set(false);
+        this.mempool = mempool;
     }
 
     private void addTransaction(ClientMessage message) {
-        // wait for append to finish, then start a new one
-        while (!clientRequestRunning.compareAndSet(false, true)) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        // if not running and the block as some transactions, start block timer 
-        if (blockTimerRunning.compareAndSet(false, true) && block.size() != 0) {
-            blockTimer = new Timer();
-            blockTimer.schedule(new TimerTask() {
-                public void run() { startConsensus(); }
-            }, 10000);
-        }
-
-        // add message to block
-        block.addMessage(message.toJson());
+        // MISSING: check if the message is valid (is author, has enough balance, etc.)
         clientList.add(message.getSenderId());
+        startConsensus(this.mempool.add(message));
+    }
 
-
-        // if block is full, start consensus and clear block
-        if (block.size() == maxBlockMessages) {
-            
-            for (String messages : block.getMessages()) {
+    private void startConsensus(Optional<Block> block) {
+        block.ifPresent(b -> {
+            for (String messages : b.getMessages()) {
                 System.out.println("Message in block: " + messages);
             }
             System.out.println("Block is full, starting consensus");
-            startConsensus();
-            block = new Block();
-        }
-        clientRequestRunning.set(false);
 
-
+            service.startConsensus(b, clientList);
+            clientList.clear();
+        });
     }
 
 

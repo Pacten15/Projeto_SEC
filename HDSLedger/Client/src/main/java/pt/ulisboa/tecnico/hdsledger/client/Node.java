@@ -4,7 +4,6 @@ import pt.ulisboa.tecnico.hdsledger.communication.CheckBalanceRequest;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
-import pt.ulisboa.tecnico.hdsledger.communication.ResponseMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.TransferMessageRequest;
 import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
@@ -29,7 +28,6 @@ public class Node {
     private static int quorum_f;
 
     private static int lastReceivedBlock = 0;
-
     private static int lastReceivedNonce = 0;
 
     public static void main(String[] args) {
@@ -83,7 +81,7 @@ public class Node {
                         balance(input, link, clientConfig, nodeConfigs);
                         break;
                     default:
-                        System.out.println("Unknown command");
+                        System.out.println("Unknown command, try 'transfer' or 'balance'.");
                 }
             }
 
@@ -127,21 +125,19 @@ public class Node {
             }
         } else { link.broadcast(clientMessage);}
 
-        
-
-        // wait for Response message quorum (f + 1 messages) and exit
-        // but create thread to wait for all ACKs
-
         int received_messages = 0;
         try {
             while (true) {
-                Message message = link.receive(); 
+                Message message = link.receive();
+
                 if (message.getType() == Message.Type.RESPONSE) {
                     int block = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[3]);
-                    if(block > lastReceivedBlock) {
-                        lastReceivedBlock = block;
+                    if(block <= lastReceivedBlock) {
                         continue;
+                    } else {
+                        lastReceivedBlock = block;
                     }
+
                     if (++received_messages >= quorum_f + 1) {
                         System.out.println(MessageFormat.format("{0} - Received Successful message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
                         break;
@@ -177,8 +173,6 @@ public class Node {
         else {
             link.broadcast(clientMessage);
         }
-
-        
 
         // wait for Response message quorum (f + 1 messages) and exit
         // but create thread to wait for all ACKs
