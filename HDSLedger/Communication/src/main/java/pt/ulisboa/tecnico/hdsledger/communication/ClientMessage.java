@@ -8,7 +8,7 @@ public class ClientMessage extends Message{
 
     public ClientMessage(String senderId, Type type, String message) {
         super(senderId, type);
-        this.message = message;
+        this.message = message;  
     }
 
     public String getMessage() {
@@ -30,6 +30,8 @@ public class ClientMessage extends Message{
     public ResponseMessage deserializeResponseMessage() {
         return new Gson().fromJson(this.message, ResponseMessage.class);
     }
+
+    
 
     public String toJson() {
         return new Gson().toJson(this);

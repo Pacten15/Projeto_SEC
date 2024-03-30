@@ -82,6 +82,8 @@ public class NodeService implements UDPService {
     // Ledger (for now, just a list of strings)
     private ArrayList<Block> ledger = new ArrayList<>();
 
+    private ArrayList<Integer> seenNounces = new ArrayList<>();
+
     public NodeService(Link link, Link clientLink, ProcessConfig config,
             ProcessConfig leaderConfig, ProcessConfig[] nodesConfig, ProcessConfig[] clientsConfig) {
 
@@ -116,8 +118,10 @@ public class NodeService implements UDPService {
     public void createAccounts(ProcessConfig[] clientsConfig) {
         //Sleep to let the client node execute and create their keys
         sleep(6000);
-        String public_key_node = getPublicKeyServerB64EncodedString(config.getId()).toString();
-        this.accounts.put(config.getId(), new Account(config.getId(), public_key_node));
+        for (ProcessConfig nodeConfig : nodesConfig) {
+            String public_key_node = getPublicKeyServerB64EncodedString(nodeConfig.getId()).toString();
+            this.accounts.put(nodeConfig.getId(), new Account(nodeConfig.getId(), public_key_node));
+        }
         for (ProcessConfig clientConfig : clientsConfig) {
             String public_key_client = getPublicKeyServerB64EncodedString(clientConfig.getId()).toString();
             this.accounts.put(clientConfig.getId(), new Account(clientConfig.getId(), public_key_client));
@@ -274,6 +278,7 @@ public class NodeService implements UDPService {
 
         if (!verifyBlock(message.getMessage())) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Block verification failed", config.getId()));
+
             return;
         }
 
@@ -492,13 +497,18 @@ public class NodeService implements UDPService {
             //Change account states
             for (String receivedMessage : value.getMessages()) {
 
-                System.out.println("\n\n\nReceived message: " + receivedMessage);
-                TransferMessageRequest transferMessage = new Gson().fromJson(receivedMessage, TransferMessageRequest.class);
-                System.out.println("Transfer message: " + transferMessage.toJson());
-                Account senderAccount = accounts.get(transferMessage.getSourceId());
-                Account receiverAccount = accounts.get(transferMessage.getDestId());
-                senderAccount.decreaseBalance(transferMessage.getAmount());
-                receiverAccount.increaseBalance(transferMessage.getAmount());
+                System.out.println("Received message: " + receivedMessage);
+
+                ClientMessage clientMessage = new Gson().fromJson(receivedMessage, ClientMessage.class);
+
+                if(clientMessage.getType() == Message.Type.TRANSFER) {
+                    TransferMessageRequest transferMessage = new Gson().fromJson(clientMessage.getMessage(), TransferMessageRequest.class);
+                    System.out.println("Transfer message: " + transferMessage.toJson());
+                    Account senderAccount = accounts.get(transferMessage.getSourceId());
+                    Account receiverAccount = accounts.get(transferMessage.getDestId());
+                    senderAccount.decreaseBalance(transferMessage.getAmount());
+                    receiverAccount.increaseBalance(transferMessage.getAmount());
+                }
             }
 
             for (String currentClientId : currentClients) {
@@ -818,6 +828,40 @@ public class NodeService implements UDPService {
         for (String message : b.getMessages()) {
             Message m = Message.fromJson(message);
 
+            ClientMessage clientMessage = new Gson().fromJson(message, ClientMessage.class);
+
+            if(clientMessage.getType() == Message.Type.TRANSFER) {
+                TransferMessageRequest transferMessage = new Gson().fromJson(clientMessage.getMessage(), TransferMessageRequest.class);
+                //Verify if transactions nonce is unique
+                if(seenNounces.contains(transferMessage.getNonce())) {
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Nonce already used", config.getId()));
+                    return false;
+                } else {
+                    seenNounces.add(transferMessage.getNonce());
+                }
+
+                //Verify if the sender has enough balance
+
+                Account senderAccount = accounts.get(transferMessage.getSourceId());
+
+                if(senderAccount.getBalance().compareTo(transferMessage.getAmount()) < 0) {
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sender does not have enough balance", config.getId()));
+                    return false;
+                }
+
+                //Verify if the receiver exists
+                if(accounts.get(transferMessage.getDestId()) == null) {
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Receiver does not exist", config.getId()));
+                    return false;
+                }
+
+                //Verify if the sender and receiver are the same
+                if(transferMessage.getSourceId().equals(transferMessage.getDestId())) {
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sender and receiver are the same", config.getId()));
+                    return false;
+                }
+
+            }
             if (!clientLink.verifySignature(message, m.getSenderId())) {
                 LOGGER.log(Level.INFO, MessageFormat.format("{0} - Invalid signature from {1}", config.getId(),
                         m.getSenderId()));

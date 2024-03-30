@@ -10,11 +10,14 @@ public class TransferMessageRequest extends Message {
     private String destId;
     private BigDecimal amount;
 
+    private int nonce;
+
     public TransferMessageRequest(String sourceId, String destId, BigDecimal amount) {
         super(sourceId, Type.TRANSFER);
         this.sourceId = sourceId;
         this.destId = destId;
         this.amount = amount;
+        this.nonce = new java.util.Random().nextInt(999999999);
     }
 
 
@@ -28,6 +31,10 @@ public class TransferMessageRequest extends Message {
 
     public BigDecimal getAmount() {
         return amount;
+    }
+
+    public int getNonce() {
+        return nonce;
     }
 
     public String toJson() {

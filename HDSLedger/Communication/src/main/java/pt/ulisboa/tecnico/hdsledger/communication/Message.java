@@ -12,9 +12,6 @@ public class Message implements Serializable {
     // Message type
     private Type type;
 
-    //Message Nonce
-    private int nonce;
-
     // Message signature
     private String signature;
  
@@ -57,14 +54,6 @@ public class Message implements Serializable {
 
     public void setSignature(String signature) {
         this.signature = signature;
-    }
-
-    public int getNonce() {
-        return nonce;
-    }
-
-    public void setNonce(int nonce) {
-        this.nonce = nonce;
     }
 
     public String toJson() {

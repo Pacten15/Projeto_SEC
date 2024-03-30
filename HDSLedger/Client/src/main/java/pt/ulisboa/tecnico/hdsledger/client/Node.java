@@ -28,6 +28,8 @@ public class Node {
 
     private static int quorum_f;
 
+    private static int lastReceivedBlock = 0;
+
     private static int lastReceivedNonce = 0;
 
     public static void main(String[] args) {
@@ -101,6 +103,16 @@ public class Node {
         // send to all servers
         String receiverId = parts[1];
         BigDecimal amount = new BigDecimal(parts[2]);
+        if(amount.compareTo(BigDecimal.ZERO) <= 0) {
+            System.out.println("Amount must be greater than 0");
+            return;
+        }
+
+        if(receiverId.equals(client.getId())) {
+            System.out.println("Cannot transfer to yourself");
+            return;
+        }
+
         TransferMessageRequest transferMessage = new TransferMessageRequest(client.getId(), receiverId, amount);
 
         ClientMessage clientMessage = new ClientMessage(client.getId(), Message.Type.TRANSFER, transferMessage.toJson());
@@ -113,10 +125,7 @@ public class Node {
                 }
                 link.send(node.getId(), clientMessage);
             }
-        }
-        else {
-            link.broadcast(clientMessage);
-        }
+        } else { link.broadcast(clientMessage);}
 
         
 
@@ -126,9 +135,13 @@ public class Node {
         int received_messages = 0;
         try {
             while (true) {
-                Message message = link.receive();
-
+                Message message = link.receive(); 
                 if (message.getType() == Message.Type.RESPONSE) {
+                    int block = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[3]);
+                    if(block > lastReceivedBlock) {
+                        lastReceivedBlock = block;
+                        continue;
+                    }
                     if (++received_messages >= quorum_f + 1) {
                         System.out.println(MessageFormat.format("{0} - Received Successful message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
                         break;

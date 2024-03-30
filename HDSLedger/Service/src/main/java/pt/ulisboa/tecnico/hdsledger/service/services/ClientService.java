@@ -41,7 +41,7 @@ public class ClientService implements UDPService {
     private AtomicBoolean blockTimerRunning = new AtomicBoolean(false);
     private Timer blockTimer = new Timer();
 
-    private final int maxBlockMessages = 1;
+    private final int maxBlockMessages = 3;
     private Block block = new Block();
     private List<String> clientList = new ArrayList<String>();
 
@@ -83,22 +83,17 @@ public class ClientService implements UDPService {
             }
         }
 
-        //// if not running, start block timer
-        //if (blockTimerRunning.compareAndSet(false, true)) {
-        //    blockTimer = new Timer();
-        //    blockTimer.schedule(new TimerTask() {
-        //        public void run() { startConsensus(); }
-        //    }, 1000);
-        //}
+        // if not running and the block as some transactions, start block timer 
+        if (blockTimerRunning.compareAndSet(false, true) && block.size() != 0) {
+            blockTimer = new Timer();
+            blockTimer.schedule(new TimerTask() {
+                public void run() { startConsensus(); }
+            }, 10000);
+        }
 
         // add message to block
-        block.addMessage(message.getMessage());
+        block.addMessage(message.toJson());
         clientList.add(message.getSenderId());
-
-        ResponseMessage response = new ResponseMessage(config.getId(), "Message received");
-        
-       
-        link.send(message.getSenderId(), response);
 
 
         // if block is full, start consensus and clear block
@@ -115,7 +110,6 @@ public class ClientService implements UDPService {
 
 
     }
-
 
 
     public void listen() {
