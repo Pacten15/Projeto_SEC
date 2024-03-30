@@ -15,9 +15,10 @@ import com.google.gson.Gson;
 import java.util.ArrayList;
 import java.util.List;
 
-import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
+import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
+import pt.ulisboa.tecnico.hdsledger.communication.TransferMessageRequest;
 import pt.ulisboa.tecnico.hdsledger.service.models.Block;
 import pt.ulisboa.tecnico.hdsledger.service.services.NodeService;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
@@ -33,12 +34,12 @@ public class ClientService implements UDPService {
 
     private final NodeService service;
 
-    private AtomicBoolean appendRunning = new AtomicBoolean(false);
+    private AtomicBoolean clientRequestRunning = new AtomicBoolean(false);
     private AtomicBoolean consensusRunning = new AtomicBoolean(false);
     private AtomicBoolean blockTimerRunning = new AtomicBoolean(false);
     private Timer blockTimer = new Timer();
 
-    private final int maxBlockMessages = 16;
+    private final int maxBlockMessages = 6;
     private Block block = new Block();
     private List<String> clientList = new ArrayList<String>();
 
@@ -70,9 +71,9 @@ public class ClientService implements UDPService {
         consensusRunning.set(false);
     }
 
-    private void append(AppendMessage message) {
+    private void addTransaction(ClientMessage message) {
         // wait for append to finish, then start a new one
-        while (!appendRunning.compareAndSet(false, true)) {
+        while (!clientRequestRunning.compareAndSet(false, true)) {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -94,12 +95,16 @@ public class ClientService implements UDPService {
 
         // if block is full, start consensus and clear block
         if (block.size() == maxBlockMessages) {
+            
+            for (String messages : block.getMessages()) {
+                System.out.println("Message in block: " + messages);
+            }
+            System.out.println("Block is full, starting consensus");
             startConsensus();
+            block = new Block();
         }
-        appendRunning.set(false);
+        clientRequestRunning.set(false);
     }
-
-
 
 
 
@@ -112,9 +117,14 @@ public class ClientService implements UDPService {
 
                         new Thread(() -> {
                             switch (message.getType()) {
-                                case APPEND -> {
-                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received APPEND message from {1}", config.getId(), message.getSenderId()));
-                                    append((AppendMessage)message);
+                                case TRANSFER -> {
+                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received Transfer message from {1}", config.getId(), message.getSenderId()));
+                                    System.out.println("Message: " + message.toJson());
+                                    System.out.println("Message Type: " + message.getType());
+                                    addTransaction((ClientMessage) message);
+                                }
+                                case CHECK_BALANCE -> {
+                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received Balance message from {1}", config.getId(), message.getSenderId()));  
                                 }
                                 case ACK ->
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ACK message from {1}", config.getId(), message.getSenderId()));

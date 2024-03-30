@@ -1,14 +1,16 @@
 package pt.ulisboa.tecnico.hdsledger.communication;
 
+import java.math.BigDecimal;
+
 import com.google.gson.Gson;
 
 public class TransferMessageRequest extends Message {
     
     private String sourceId;
     private String destId;
-    private int amount;
+    private BigDecimal amount;
 
-    public TransferMessageRequest(String sourceId, String destId, int amount) {
+    public TransferMessageRequest(String sourceId, String destId, BigDecimal amount) {
         super(sourceId, Type.TRANSFER);
         this.sourceId = sourceId;
         this.destId = destId;
@@ -24,7 +26,7 @@ public class TransferMessageRequest extends Message {
         return destId;
     }
 
-    public int getAmount() {
+    public BigDecimal getAmount() {
         return amount;
     }
 

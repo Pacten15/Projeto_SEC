@@ -19,11 +19,11 @@ public class ClientMessage extends Message{
         this.message = message;
     }
 
-    TransferMessageRequest deserializeTransferMessageRequest() {
+    public TransferMessageRequest deserializeTransferMessageRequest() {
         return new Gson().fromJson(this.message, TransferMessageRequest.class);
     }
 
-    CheckBalanceRequest deserializeCheckBalanceRequest() {
+    public CheckBalanceRequest deserializeCheckBalanceRequest() {
         return new Gson().fromJson(this.message, CheckBalanceRequest.class);
     }
 

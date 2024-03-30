@@ -6,7 +6,7 @@ public class Account {
 
     private String ownerId;
     private String publicKey;
-    private static final int INITIAL_AMOUNT = 100;
+    private static final int INITIAL_AMOUNT = 10000;
     private BigDecimal balance = new BigDecimal(INITIAL_AMOUNT);
     private int lastSeenNonce;
 
@@ -46,6 +46,14 @@ public class Account {
 
     public void setLastSeenNonce(int lastSeenNonce) {
         this.lastSeenNonce = lastSeenNonce;
+    }
+
+    public void decreaseBalance(BigDecimal amount) {
+        this.balance = this.balance.subtract(amount);
+    }
+
+    public void increaseBalance(BigDecimal amount) {
+        this.balance = this.balance.add(amount);
     }
     
 }

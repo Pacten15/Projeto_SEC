@@ -22,7 +22,8 @@ server_configs = [
     "fake_preprepare_config.json",
     "broadcast_fail_leader.json",
     "no_prepare_01.json",
-    "no_commit_01.json"
+    "no_commit_01.json",
+    "sleep_servers_config.json"
 ]
 
 client_configs = [

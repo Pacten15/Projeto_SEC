@@ -19,7 +19,6 @@ import java.util.logging.Level;
 
 import com.google.gson.Gson;
 
-import pt.ulisboa.tecnico.hdsledger.communication.AppendMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.CommitMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.ConsensusMessage;
@@ -28,6 +27,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.communication.PrePrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.PrepareMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.RoundChangeMessage;
+import pt.ulisboa.tecnico.hdsledger.communication.TransferMessageRequest;
 import pt.ulisboa.tecnico.hdsledger.communication.builder.ConsensusMessageBuilder;
 import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.service.models.Account;
@@ -103,12 +103,8 @@ public class NodeService implements UDPService {
         return Base64.getEncoder().encodeToString(publicKey.getEncoded());
     }
     
-    public String getPublicKeyClientB64EncodedString(String id) {
-        PublicKey publicKey = CryptoUtils.getPublicKey("../Security/keys/public_key_client_" + id + ".key");
-        return Base64.getEncoder().encodeToString(publicKey.getEncoded());
-    }
 
-    public void sleep(int time) {
+    public synchronized void sleep(int time) {
         try {
             Thread.sleep(time);
         } catch (InterruptedException e) {
@@ -123,7 +119,7 @@ public class NodeService implements UDPService {
         String public_key_node = getPublicKeyServerB64EncodedString(config.getId()).toString();
         this.accounts.put(config.getId(), new Account(config.getId(), public_key_node));
         for (ProcessConfig clientConfig : clientsConfig) {
-            String public_key_client = getPublicKeyClientB64EncodedString(clientConfig.getId()).toString();
+            String public_key_client = getPublicKeyServerB64EncodedString(clientConfig.getId()).toString();
             this.accounts.put(clientConfig.getId(), new Account(clientConfig.getId(), public_key_client));
         }
     }
@@ -217,11 +213,7 @@ public class NodeService implements UDPService {
         // Only start a consensus instance if the last one was decided
         // We need to be sure that the previous value has been decided
         while (lastDecidedConsensusInstance.get() < localConsensusInstance - 1) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            sleep(1000);
         }
 
         currentClients.addAll(clientList);
@@ -252,11 +244,7 @@ public class NodeService implements UDPService {
     public void uponPrePrepare(ConsensusMessage message) {
 
         if (config.getBehavior() == Behavior.SLEEP) {
-            try {
-                Thread.sleep(6000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            sleep(6000);
         }
 
         int consensusInstance = message.getConsensusInstance();
@@ -501,6 +489,31 @@ public class NodeService implements UDPService {
 
             Block value = Block.fromJson(commitValue.get());
 
+            //Change account states
+            for (String receivedMessage : value.getMessages()) {
+                Message generalizedMessage = Message.fromJson(receivedMessage);
+                ClientMessage clientMessage = (ClientMessage) generalizedMessage;
+
+                if (clientMessage.getType() == Message.Type.TRANSFER) {
+                    TransferMessageRequest transferMessage = clientMessage.deserializeTransferMessageRequest();
+
+                    Account senderAccount = accounts.get(transferMessage.getSourceId());
+                    Account receiverAccount = accounts.get(transferMessage.getDestId());
+                    senderAccount.decreaseBalance(transferMessage.getAmount());
+                    receiverAccount.increaseBalance(transferMessage.getAmount());
+                }
+            }
+
+            for (String currentClientId : currentClients) {
+                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+                        "Success on block " + value.getInstance());
+
+                clientLink.send(currentClientId, clientMessage);
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction SUCCESS message to {1}", config.getId(), currentClientId));
+            }
+
+            printAccountsState();
+
             // Append value to the ledger (must be synchronized to be thread-safe)
             synchronized (ledger) {
                 // Increment size of ledger to accommodate current instance
@@ -522,13 +535,7 @@ public class NodeService implements UDPService {
                     MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                             config.getId(), consensusInstance, round, true));
 
-            for (String currentClientId : currentClients) {
-                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                        "Success on block " + ledger.size());
-
-                clientLink.send(currentClientId, clientMessage);
-                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent APPEND SUCCESS message to {1}", config.getId(), currentClientId));
-            }
+            
             currentClients.clear();
 
             // reset timer
