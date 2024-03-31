@@ -6,11 +6,11 @@ import java.math.BigDecimal;
 import java.text.MessageFormat;
 import java.util.logging.Level;
 
-import com.google.gson.Gson;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import pt.ulisboa.tecnico.hdsledger.communication.CheckBalanceRequest;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
@@ -39,6 +39,19 @@ public class ClientService implements UDPService {
         this.mempool = mempool;
     }
 
+    public void setTimer(ClientMessage message) {
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Timer expired for {1}", config.getId(), message.getSenderId()));
+                startConsensus(mempool.forceBlock());
+            }
+        }, 10000);
+
+        mempool.addTimer(message, timer);
+    }
+
     public void addTransaction(ClientMessage message) {
         // MISSING: check if the message is valid (is author, has enough balance, etc.)
 
@@ -51,6 +64,7 @@ public class ClientService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction failed for {1}", config.getId(), message.getSenderId()));
             return;
         }
+        setTimer(message);
         clientList.add(message.getSenderId());
         startConsensus(this.mempool.add(message));
     }
