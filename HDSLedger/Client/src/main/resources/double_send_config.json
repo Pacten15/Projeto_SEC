@@ -1,0 +1,20 @@
+[
+    {   
+        "id": "69",
+        "hostname": "localhost",
+        "port": 3069,
+        "behavior": "DOUBLE_SEND_MESSAGE"
+    },
+    {   
+        "id": "70",
+        "hostname": "localhost",
+        "port": 3070,
+        "behavior": "DOUBLE_SEND_MESSAGE"
+    },
+    {   
+        "id": "71",
+        "hostname": "localhost",
+        "port": 3071,
+        "behavior": "DOUBLE_SEND_MESSAGE"
+    }
+]

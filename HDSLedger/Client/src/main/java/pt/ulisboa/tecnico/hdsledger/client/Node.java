@@ -28,7 +28,6 @@ public class Node {
     private static int quorum_f;
 
     private static int lastReceivedBlock = -1;
-    private static int lastReceivedNonce = 0;
 
     public static void main(String[] args) {
 
@@ -123,7 +122,13 @@ public class Node {
                 }
                 link.send(node.getId(), clientMessage);
             }
-        } else { link.broadcast(clientMessage);}
+        } else if (client.getBehavior() == Behavior.DOUBLE_SEND_MESSAGE) {
+            System.out.println("Client is sending  double messages");
+            link.broadcast(clientMessage);
+            link.broadcast(clientMessage);
+        } else {
+            link.broadcast(clientMessage);
+        }
 
         int received_messages = 0;
         try {
@@ -138,9 +143,7 @@ public class Node {
                         if(block <= lastReceivedBlock) {
                             continue;
                         } else {
-                            lastReceivedBlock = block;
-                            lastReceivedNonce = nonce; 
-                              
+                            lastReceivedBlock = block;                              
                         }
                         //Deal with response messages from transfer messages here
                         if (++received_messages >= quorum_f + 1) {

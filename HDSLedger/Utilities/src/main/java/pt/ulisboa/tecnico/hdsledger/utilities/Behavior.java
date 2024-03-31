@@ -29,7 +29,11 @@ public enum Behavior {
     //A process thats sleeps for too much time
     SLEEP("SLEEP"),
     //A client process does not send messages to the leader
-    NO_SEND_TO_LEADER("NO_SEND_TO_LEADER");
+    NO_SEND_TO_LEADER("NO_SEND_TO_LEADER"),
+    //A client process sends duplicate messages
+    DOUBLE_SEND_MESSAGE("DOUBLE_SEND_MESSAGE"),
+    //A server process ignores messages from a client
+    IGNORE_CLIENT("IGNORE_CLIENT");
     
 
     String behavior;

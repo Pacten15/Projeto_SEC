@@ -17,6 +17,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
 import pt.ulisboa.tecnico.hdsledger.service.models.Block;
+import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 
@@ -54,7 +55,6 @@ public class ClientService implements UDPService {
 
     public void addTransaction(ClientMessage message) {
         // MISSING: check if the message is valid (is author, has enough balance, etc.)
-
         if(message.getType() != Message.Type.TRANSFER) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction failed for {1}", config.getId(), message.getSenderId()));
             return;
@@ -64,6 +64,9 @@ public class ClientService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction failed for {1}", config.getId(), message.getSenderId()));
             return;
         }
+
+        if (config.getBehavior() == Behavior.IGNORE_CLIENT && message.getSenderId() == "69") return;
+
         setTimer(message);
         clientList.add(message.getSenderId());
         startConsensus(this.mempool.add(message));

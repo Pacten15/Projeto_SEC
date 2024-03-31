@@ -22,11 +22,13 @@ server_configs = [
     "broadcast_fail_leader.json",
     "no_prepare_01.json",
     "no_commit_01.json",
-    "sleep_servers_config.json"
+    "sleep_servers_config.json",
+    "leader_ignore_client_config.json"
 ]
 
 client_configs = [
     "regular_config.json",
+    "double_send_config.json",
     "no_send_to_leader_config.json"
 ]
 
