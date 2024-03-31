@@ -2,6 +2,7 @@ package pt.ulisboa.tecnico.hdsledger.service.services;
 
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.MessageFormat;
 import java.util.logging.Level;
 
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import pt.ulisboa.tecnico.hdsledger.communication.CheckBalanceRequest;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
@@ -39,8 +41,46 @@ public class ClientService implements UDPService {
 
     private void addTransaction(ClientMessage message) {
         // MISSING: check if the message is valid (is author, has enough balance, etc.)
+
+        if(message.getType() != Message.Type.TRANSFER) {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction failed for {1}", config.getId(), message.getSenderId()));
+            return;
+        }
+
+        if (!service.verifyTransactionMessage(message)) {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction failed for {1}", config.getId(), message.getSenderId()));
+            return;
+        }
         clientList.add(message.getSenderId());
         startConsensus(this.mempool.add(message));
+    }
+
+    private void checkBalance(ClientMessage message) {
+
+        if (message.getType() != Message.Type.CHECK_BALANCE) {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check failed for {1}", config.getId(), message.getSenderId()));
+            return;
+        }
+
+        CheckBalanceRequest checkBalanceRequest = message.deserializeCheckBalanceRequest();
+        String ownerId = checkBalanceRequest.getOwnerId();
+        int lastReceivedNonce = checkBalanceRequest.getLastReceivedNonce();
+        BigDecimal balance = service.checkBalance(ownerId, lastReceivedNonce);
+        BigDecimal minus1 = new BigDecimal(-1);
+        if (balance.compareTo(minus1) == 0) {
+
+            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE, "Balance check failed");
+            link.send(ownerId, responseMessage);
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check failed for {1}", config.getId(), ownerId));
+            return;
+        }
+        else {
+            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+            "You have " + balance + " dollaretas");
+            link.send(ownerId, responseMessage);
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check succeeded for {1}", config.getId(), ownerId));
+        }
+       
     }
 
     private void startConsensus(Optional<Block> block) {
@@ -72,7 +112,8 @@ public class ClientService implements UDPService {
                                     addTransaction((ClientMessage) message);
                                 }
                                 case CHECK_BALANCE -> {
-                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received Balance message from {1}", config.getId(), message.getSenderId()));  
+                                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received Balance message from {1}", config.getId(), message.getSenderId()));
+                                    checkBalance((ClientMessage) message);
                                 }
                                 case ACK ->
                                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Received ACK message from {1}", config.getId(), message.getSenderId()));

@@ -131,13 +131,17 @@ public class Node {
                 Message message = link.receive();
 
                 if (message.getType() == Message.Type.RESPONSE) {
-                    int block = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[3]);
-                    if(block <= lastReceivedBlock) {
-                        continue;
-                    } else {
-                        lastReceivedBlock = block;
-                    }
 
+                    if(((ClientMessage) message).getMessage().split(" ").length == 5){
+                        int block = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[3]);
+                        int nonce = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[5]);
+                        if(block <= lastReceivedBlock) {
+                            continue;
+                        } else {
+                            lastReceivedBlock = block;
+                            lastReceivedNonce = nonce;   
+                        }
+                    }
                     if (++received_messages >= quorum_f + 1) {
                         System.out.println(MessageFormat.format("{0} - Received Successful message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
                         break;
@@ -157,9 +161,9 @@ public class Node {
         }
 
         
-        CheckBalanceRequest transferMessage = new CheckBalanceRequest(client.getId(), lastReceivedNonce);
+        CheckBalanceRequest checkBalanceMessage = new CheckBalanceRequest(client.getId(), lastReceivedNonce);
 
-        ClientMessage clientMessage = new ClientMessage(client.getId(), Message.Type.TRANSFER, transferMessage.toJson());
+        ClientMessage clientMessage = new ClientMessage(client.getId(), Message.Type.CHECK_BALANCE, checkBalanceMessage.toJson());
 
         if(client.getBehavior() == Behavior.NO_SEND_TO_LEADER) {
             System.out.println("Client is not sending messages to the leader");

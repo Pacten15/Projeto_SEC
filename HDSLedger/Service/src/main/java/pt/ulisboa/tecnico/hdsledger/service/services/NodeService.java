@@ -120,6 +120,64 @@ public class NodeService implements UDPService {
         return Base64.getEncoder().encodeToString(publicKey.getEncoded());
     }
 
+    public BigDecimal checkBalance(String id, int nonce) {
+        System.out.println("Checking balance for " + id + " with nonce " + nonce);
+        Account account = accounts.get(id);
+        if (account == null) {
+            return new BigDecimal(-1);
+        }
+        if (account.getLastSeenNonce() != nonce) {
+            return new BigDecimal(-1);
+        }
+        return account.getBalance();
+    }
+
+    public Map<String, Account> getAccounts() {
+        return accounts;
+    }
+
+    public boolean verifyTransactionMessage(ClientMessage message) {
+
+        if (message.getType() != Message.Type.TRANSFER) {
+            return false;
+        }
+
+        //Get info from the transfer message
+        TransferMessageRequest transferMessage = message.deserializeTransferMessageRequest();
+        String senderId = transferMessage.getSourceId();
+        String receiverId = transferMessage.getDestId();
+        if(senderId.equals(receiverId)) {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sender and receiver are the same", config.getId()));
+            return false;
+        }
+        //verify if the message is signed by the sender
+        String messageSignature = message.getSignature();
+        message.setSignature("");
+        String messageContent = new Gson().toJson(message);
+        message.setSignature(messageSignature);
+        PublicKey publicKeySender = CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + message.getSenderId() + ".key");
+        if (!CryptoUtils.verifySignature(messageContent, message.getSignature(), publicKeySender)) {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Invalid signature", config.getId()));
+            return false;
+        }
+        LOGGER.log(Level.INFO, MessageFormat.format("{0} - Valid signature", config.getId()));
+
+        //verify if the sender has enough balance and Accounts exist
+        Account senderAccount = accounts.get(transferMessage.getSourceId());
+        Account receiverAccount = accounts.get(transferMessage.getDestId());
+
+        if (senderAccount == null || receiverAccount == null) {
+            return false;
+        }
+        if (senderAccount.getBalance().compareTo(transferMessage.getAmount()) < 0) {
+            return false;
+        }
+        if (seenNounces.contains(transferMessage.getNonce())) {
+            return false;
+        }
+        return true;
+    }
+
     public synchronized void sleep(int time) {
         try {
             Thread.sleep(time);
@@ -147,6 +205,8 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Account: OwnerId {1} Balance {2}", config.getId(), account.getOwnerId(), account.getBalance()));
         }
     }
+
+    
 
     public ProcessConfig getConfig() {
         return this.config;
@@ -274,8 +334,13 @@ public class NodeService implements UDPService {
                         config.getId(), senderId, consensusInstance, round));
 
         if (!verifyBlock(message.getMessage())) {
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Block verification failed", config.getId()));
+            for (String currentClientId : currentClients) {
+                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+                        "Failed block repeat transaction if think you were correct");
 
+                clientLink.send(currentClientId, clientMessage);
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
+            }
             return;
         }
 
@@ -356,7 +421,13 @@ public class NodeService implements UDPService {
                         config.getId(), senderId, consensusInstance, round));
 
         if (!verifyBlock(message.getMessage())) {
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Block verification failed", config.getId()));
+            for (String currentClientId : currentClients) {
+                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+                        "Failed block repeat transaction if think you were correct");
+
+                clientLink.send(currentClientId, clientMessage);
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
+            }
             return;
         }
 
@@ -428,6 +499,14 @@ public class NodeService implements UDPService {
         }
     }
 
+
+
+    public void prepareMapClientIdNoce(Map<String, Integer> clientIdNonce) {
+        for (String clientConfig : currentClients) {
+            clientIdNonce.put(clientConfig, 0);
+        }
+    }
+
     /*
      * Handle commit messages and decide if there is a valid quorum
      *
@@ -456,7 +535,13 @@ public class NodeService implements UDPService {
                         config.getId(), message.getSenderId(), consensusInstance, round));
 
         if (!verifyBlock(message.getMessage())) {
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Block verification failed", config.getId()));
+            for (String currentClientId : currentClients) {
+                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+                        "Failed block repeat transaction if think you were correct");
+
+                clientLink.send(currentClientId, clientMessage);
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
+            }
             return;
         }
 
@@ -491,6 +576,10 @@ public class NodeService implements UDPService {
 
             Block value = Block.fromJson(commitValue.get());
 
+            Map<String, Integer> clientIdAndNonce = new ConcurrentHashMap<>();
+
+            prepareMapClientIdNoce(clientIdAndNonce);
+
             // ###
             //  Change account states and remove transactions from mempool
             // ###
@@ -508,7 +597,11 @@ public class NodeService implements UDPService {
                     Account receiverAccount = accounts.get(transferMessage.getDestId());
                     senderAccount.decreaseBalance(transferMessage.getAmount());
                     receiverAccount.increaseBalance(transferMessage.getAmount());
-
+                    //Add nonce or update latest nonce for the sender and receiver of the transaction
+                    clientIdAndNonce.replace(transferMessage.getSourceId(), transferMessage.getNonce());
+                    clientIdAndNonce.replace(transferMessage.getDestId(), transferMessage.getNonce());
+                    senderAccount.setLastSeenNonce(transferMessage.getNonce());
+                    receiverAccount.setLastSeenNonce(transferMessage.getNonce());
                     // fee
                     Account leaderAccount = accounts.get(Leader(consensusInstance, round));
                     senderAccount.decreaseBalance(this.fee);
@@ -521,13 +614,11 @@ public class NodeService implements UDPService {
             // ###
             for (String currentClientId : currentClients) {
                 ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                        "Success on block " + value.getInstance());
+                        "Success on block " + value.getInstance() + " with nonce " + clientIdAndNonce.get(currentClientId));
 
                 clientLink.send(currentClientId, clientMessage);
                 LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction SUCCESS message to {1}", config.getId(), currentClientId));
             }
-
-            
 
             // Append value to the ledger (must be synchronized to be thread-safe)
             synchronized (ledger) {
@@ -698,7 +789,13 @@ public class NodeService implements UDPService {
             instance.setRoundChangeRound(currentRound);
 
             if (!verifyBlock(pV.get())) {
-                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Block verification failed", config.getId()));
+                for (String currentClientId : currentClients) {
+                    ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+                            "Failed block repeat transaction if think you were correct");
+    
+                    clientLink.send(currentClientId, clientMessage);
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
+                }
                 return;
             }
 
@@ -840,13 +937,7 @@ public class NodeService implements UDPService {
 
             if(clientMessage.getType() == Message.Type.TRANSFER) {
                 TransferMessageRequest transferMessage = new Gson().fromJson(clientMessage.getMessage(), TransferMessageRequest.class);
-                //Verify if transactions nonce is unique
-                if(seenNounces.contains(transferMessage.getNonce())) {
-                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Nonce already used", config.getId()));
-                    return false;
-                } else {
-                    seenNounces.add(transferMessage.getNonce());
-                }
+
 
                 //Verify if the sender has enough balance
 
@@ -867,6 +958,13 @@ public class NodeService implements UDPService {
                 if(transferMessage.getSourceId().equals(transferMessage.getDestId())) {
                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sender and receiver are the same", config.getId()));
                     return false;
+                }
+                //Verify if transactions nonce is unique
+                if(seenNounces.contains(transferMessage.getNonce())) {
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Nonce already used", config.getId()));
+                    return false;
+                } else {
+                    seenNounces.add(transferMessage.getNonce());
                 }
 
             }
