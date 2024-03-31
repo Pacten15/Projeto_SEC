@@ -163,13 +163,14 @@ public class Node {
 
     public static void balance(String input, Link link, ProcessConfig client, ProcessConfig[] nodeConfigs) {
         String[] parts = input.split(" ");
-        if (parts.length != 1) {
-            System.out.println("Usage: balance");
+        if (parts.length != 2) {
+            System.out.println("Usage: balance <clientId>");
             return;
         }
 
-        
-        CheckBalanceRequest checkBalanceMessage = new CheckBalanceRequest(client.getId(), lastReceivedNonce);
+        // send to all servers
+        String clientId = parts[1];
+        CheckBalanceRequest checkBalanceMessage = new CheckBalanceRequest(clientId);
 
         ClientMessage clientMessage = new ClientMessage(client.getId(), Message.Type.CHECK_BALANCE, checkBalanceMessage.toJson());
 

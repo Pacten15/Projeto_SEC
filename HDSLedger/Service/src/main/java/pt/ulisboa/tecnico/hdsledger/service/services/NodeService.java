@@ -120,13 +120,10 @@ public class NodeService implements UDPService {
         return Base64.getEncoder().encodeToString(publicKey.getEncoded());
     }
 
-    public BigDecimal checkBalance(String id, int nonce) {
-        System.out.println("Checking balance for " + id + " with nonce " + nonce);
+    public BigDecimal checkBalance(String id) {
+        System.out.println("Checking balance for " + id);
         Account account = accounts.get(id);
         if (account == null) {
-            return new BigDecimal(-1);
-        }
-        if (account.getLastSeenNonce() != nonce) {
             return new BigDecimal(-1);
         }
         return account.getBalance();

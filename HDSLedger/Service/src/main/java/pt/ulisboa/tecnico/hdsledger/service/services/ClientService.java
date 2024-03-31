@@ -78,23 +78,12 @@ public class ClientService implements UDPService {
 
         CheckBalanceRequest checkBalanceRequest = message.deserializeCheckBalanceRequest();
         String ownerId = checkBalanceRequest.getOwnerId();
-        int lastReceivedNonce = checkBalanceRequest.getLastReceivedNonce();
-        BigDecimal balance = service.checkBalance(ownerId, lastReceivedNonce);
-        BigDecimal minus1 = new BigDecimal(-1);
-        if (balance.compareTo(minus1) == 0) {
+        BigDecimal balance = service.checkBalance(ownerId);
+        ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE,
+        ownerId + " has " + balance + " dollaretas");
 
-            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE, "Balance check failed");
-            link.send(ownerId, responseMessage);
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check failed for {1}", config.getId(), ownerId));
-            return;
-        }
-        else {
-            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE,
-            "You have " + balance + " dollaretas");
-            link.send(ownerId, responseMessage);
-            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check succeeded for {1}", config.getId(), ownerId));
-        }
-       
+        link.send(message.getSenderId(), responseMessage);
+        LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check succeeded for {1}", config.getId(), ownerId));
     }
 
     private void startConsensus(Optional<Block> block) {
