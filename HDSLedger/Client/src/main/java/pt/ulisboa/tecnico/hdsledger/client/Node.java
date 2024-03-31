@@ -1,5 +1,12 @@
 package pt.ulisboa.tecnico.hdsledger.client;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.text.MessageFormat;
+import java.util.Arrays;
+import java.util.Scanner;
+import java.util.logging.Level;
+
 import pt.ulisboa.tecnico.hdsledger.communication.CheckBalanceRequest;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
@@ -10,13 +17,6 @@ import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
 import pt.ulisboa.tecnico.hdsledger.utilities.CustomLogger;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfig;
 import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.text.MessageFormat;
-import java.util.Arrays;
-import java.util.Scanner;
-import java.util.logging.Level;
 
 public class Node {
 
@@ -131,19 +131,26 @@ public class Node {
                 Message message = link.receive();
 
                 if (message.getType() == Message.Type.RESPONSE) {
-
-                    if(((ClientMessage) message).getMessage().split(" ").length == 5){
+                    if(((ClientMessage) message).getMessage().split(" ").length == 7){
                         int block = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[3]);
-                        int nonce = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[5]);
+                        int nonce = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[6]);
                         if(block <= lastReceivedBlock) {
                             continue;
                         } else {
                             lastReceivedBlock = block;
-                            lastReceivedNonce = nonce;   
+                            lastReceivedNonce = nonce; 
+                              
                         }
+                        //Deal with response messages from transfer messages here
+                        if (++received_messages >= quorum_f + 1) {
+                            System.out.println(MessageFormat.format("{0} - Received Transfer message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
+                            break;
+                        }
+                        
                     }
+                    //Deal with response messages from failed transaction messages here
                     if (++received_messages >= quorum_f + 1) {
-                        System.out.println(MessageFormat.format("{0} - Received Successful message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
+                        System.out.println(MessageFormat.format("{0} - Received Transfer message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
                         break;
                     }
                 }
@@ -186,9 +193,9 @@ public class Node {
             while (true) {
                 Message message = link.receive();
 
-                if (message.getType() == Message.Type.RESPONSE) {
+                if (message.getType() == Message.Type.RESPONSE_BALANCE) {
                     if (++received_messages >= quorum_f + 1) {
-                        System.out.println(MessageFormat.format("{0} - Received Successful message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
+                        System.out.println(MessageFormat.format("{0} - Received Successful balance message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
                         break;
                     }
                 }

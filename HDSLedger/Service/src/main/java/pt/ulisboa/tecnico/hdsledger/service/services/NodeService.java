@@ -598,8 +598,8 @@ public class NodeService implements UDPService {
                     senderAccount.decreaseBalance(transferMessage.getAmount());
                     receiverAccount.increaseBalance(transferMessage.getAmount());
                     //Add nonce or update latest nonce for the sender and receiver of the transaction
-                    clientIdAndNonce.replace(transferMessage.getSourceId(), transferMessage.getNonce());
-                    clientIdAndNonce.replace(transferMessage.getDestId(), transferMessage.getNonce());
+                    clientIdAndNonce.put(transferMessage.getSourceId(), transferMessage.getNonce());
+                    clientIdAndNonce.put(transferMessage.getDestId(), transferMessage.getNonce());
                     senderAccount.setLastSeenNonce(transferMessage.getNonce());
                     receiverAccount.setLastSeenNonce(transferMessage.getNonce());
                     // fee

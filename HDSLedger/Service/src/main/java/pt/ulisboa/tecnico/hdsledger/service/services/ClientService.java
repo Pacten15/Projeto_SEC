@@ -39,7 +39,7 @@ public class ClientService implements UDPService {
         this.mempool = mempool;
     }
 
-    private void addTransaction(ClientMessage message) {
+    public void addTransaction(ClientMessage message) {
         // MISSING: check if the message is valid (is author, has enough balance, etc.)
 
         if(message.getType() != Message.Type.TRANSFER) {
@@ -55,7 +55,7 @@ public class ClientService implements UDPService {
         startConsensus(this.mempool.add(message));
     }
 
-    private void checkBalance(ClientMessage message) {
+    public void checkBalance(ClientMessage message) {
 
         if (message.getType() != Message.Type.CHECK_BALANCE) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check failed for {1}", config.getId(), message.getSenderId()));
@@ -69,13 +69,13 @@ public class ClientService implements UDPService {
         BigDecimal minus1 = new BigDecimal(-1);
         if (balance.compareTo(minus1) == 0) {
 
-            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE, "Balance check failed");
+            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE, "Balance check failed");
             link.send(ownerId, responseMessage);
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check failed for {1}", config.getId(), ownerId));
             return;
         }
         else {
-            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+            ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE,
             "You have " + balance + " dollaretas");
             link.send(ownerId, responseMessage);
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check succeeded for {1}", config.getId(), ownerId));
@@ -94,7 +94,6 @@ public class ClientService implements UDPService {
             clientList.clear();
         });
     }
-
 
     public void listen() {
         try {
