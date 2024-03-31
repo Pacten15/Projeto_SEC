@@ -232,7 +232,7 @@ public class NodeService implements UDPService {
             public void run() {
                 uponConsensusTimerExpired(message);
             }
-        }, 5 * 1000 * message.getRound());
+        }, 10 * 1000 * message.getRound());
     }
 
     public ConsensusMessage createConsensusMessage(String value, int instance, int round) {
@@ -334,13 +334,7 @@ public class NodeService implements UDPService {
                         config.getId(), senderId, consensusInstance, round));
 
         if (!verifyBlock(message.getMessage())) {
-            for (String currentClientId : currentClients) {
-                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                        "Failed block repeat transaction if think you were correct");
-
-                clientLink.send(currentClientId, clientMessage);
-                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
-            }
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Invalid block received", config.getId()));
             return;
         }
 
@@ -420,16 +414,6 @@ public class NodeService implements UDPService {
                 MessageFormat.format("{0} - Received PREPARE message from {1}: Consensus Instance {2}, Round {3}",
                         config.getId(), senderId, consensusInstance, round));
 
-        if (!verifyBlock(message.getMessage())) {
-            for (String currentClientId : currentClients) {
-                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                        "Failed block repeat transaction if think you were correct");
-
-                clientLink.send(currentClientId, clientMessage);
-                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
-            }
-            return;
-        }
 
         // Doesn't add duplicate messages
         prepareMessages.addMessage(message);
@@ -534,16 +518,7 @@ public class NodeService implements UDPService {
                 MessageFormat.format("{0} - Received COMMIT message from {1}: Consensus Instance {2}, Round {3}",
                         config.getId(), message.getSenderId(), consensusInstance, round));
 
-        if (!verifyBlock(message.getMessage())) {
-            for (String currentClientId : currentClients) {
-                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                        "Failed block repeat transaction if think you were correct");
-
-                clientLink.send(currentClientId, clientMessage);
-                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
-            }
-            return;
-        }
+        
 
         commitMessages.addMessage(message);
 
@@ -580,6 +555,18 @@ public class NodeService implements UDPService {
 
             prepareMapClientIdNoce(clientIdAndNonce);
 
+            if (!verifyBlock(message.getMessage())) {
+                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Invalid block received", config.getId()));
+                for (String currentClientId : currentClients) {
+                    ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+                            "Failed block repeat transaction if think you were correct");
+    
+                    clientLink.send(currentClientId, clientMessage);
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
+                }
+                return;
+            }
+
             // ###
             //  Change account states and remove transactions from mempool
             // ###
@@ -613,12 +600,21 @@ public class NodeService implements UDPService {
             //  Message clients
             // ###
             for (String currentClientId : currentClients) {
-                ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                        "Success on block " + value.getInstance() + " with nonce " + clientIdAndNonce.get(currentClientId));
+                if(clientIdAndNonce.get(currentClientId) > 0) {
+                    ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
+                        "Success on block " + lastDecidedConsensusInstance + " with nonce " + clientIdAndNonce.get(currentClientId));
 
-                clientLink.send(currentClientId, clientMessage);
-                LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction SUCCESS message to {1}", config.getId(), currentClientId));
+                    clientLink.send(currentClientId, clientMessage);
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction SUCCESS message to {1}", config.getId(), currentClientId));
+                }
+                else {
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction message does to {1}", config.getId(), currentClientId));
+                }
+
+                
             }
+
+            
 
             // Append value to the ledger (must be synchronized to be thread-safe)
             synchronized (ledger) {
@@ -640,6 +636,8 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO,
                     MessageFormat.format("{0} - Decided on Consensus Instance {1}, Round {2}, Successful? {3}",
                             config.getId(), consensusInstance, round, true));
+
+            
                         
             
             printAccountsState();
@@ -659,6 +657,7 @@ public class NodeService implements UDPService {
 
         int preparedRound;
         String preparedValue;
+
 
         round = instance.getCurrentRound() + 1;
         preparedRound = instance.getPreparedRound();
@@ -773,8 +772,8 @@ public class NodeService implements UDPService {
         }
 
         LOGGER.log(Level.INFO,
-                MessageFormat.format("{0} - Received ROUND_CHANGE message from {1}: Consensus Instance {2}, Round {3}",
-                        config.getId(), message.getSenderId(), consensusInstance, round));
+                MessageFormat.format("{0} - Received ROUND_CHANGE message from {1}: Consensus Instance {2}, Round {3}, with value {4}",
+                        config.getId(), message.getSenderId(), consensusInstance, round, message.getMessage()));
 
         Optional<Integer> r_min = roundChangeMessages.hasValidRoundChangef1(consensusInstance, round);
         Optional<String> pV = roundChangeMessages.hasValidRoundChangeQuorum(config.getId(), consensusInstance, round);
@@ -787,17 +786,7 @@ public class NodeService implements UDPService {
         // first, check if reached a quorum of round change messages
         if (pV.isPresent() && instance.getRoundChangeRound() < currentRound) {
             instance.setRoundChangeRound(currentRound);
-
-            if (!verifyBlock(pV.get())) {
-                for (String currentClientId : currentClients) {
-                    ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                            "Failed block repeat transaction if think you were correct");
-    
-                    clientLink.send(currentClientId, clientMessage);
-                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction Failure message to {1}", config.getId(), currentClientId));
-                }
-                return;
-            }
+            System.out.println("Quorum value type: " +(pV.get()));
 
             LOGGER.log(Level.INFO, MessageFormat.format(
                     "####################################\n" +
@@ -819,7 +808,9 @@ public class NodeService implements UDPService {
                 String value = ((Map.Entry<Integer, String>) roundChangeMessages.HighestPrepared(consensusInstance, round)
                         .get(0)).getValue();
                 if (value.isEmpty()) {
+                    System.out.println("Content of block " + value);
                     value = instance.getInputValue();
+                    
                 }
 
                 this.link.broadcast(this.createConsensusMessage(value, consensusInstance, instance.getCurrentRound()));
@@ -929,6 +920,7 @@ public class NodeService implements UDPService {
      */
     public boolean verifyBlock(String block) {
         Block b = Block.fromJson(block);
+
 
         for (String message : b.getMessages()) {
             Message m = Message.fromJson(message);

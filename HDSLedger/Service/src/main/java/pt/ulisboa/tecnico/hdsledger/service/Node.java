@@ -15,7 +15,9 @@ import pt.ulisboa.tecnico.hdsledger.utilities.ProcessConfigBuilder;
 
 
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 
 public class Node {
@@ -65,7 +67,11 @@ public class Node {
 
             if (leaderConfig.getBehavior() == Behavior.NO_CLIENT || leaderConfig.getBehavior() == Behavior.LEADER_PRETENDING){
                 LOGGER.log(Level.INFO, "Leader comes up with a value to start consensus");
-                nodeService.startConsensus(new Block(), Arrays.asList("fake value"));
+                List<String> clientList = new ArrayList<String>();
+                for (ProcessConfig clientConfig : clientConfigs) {
+                    clientList.add(clientConfig.getId());
+                }
+                nodeService.startConsensus(new Block(), clientList);
             }
 
             nodeService.printAccountsState();

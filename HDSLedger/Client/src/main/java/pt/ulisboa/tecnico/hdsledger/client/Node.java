@@ -27,7 +27,7 @@ public class Node {
 
     private static int quorum_f;
 
-    private static int lastReceivedBlock = 0;
+    private static int lastReceivedBlock = -1;
     private static int lastReceivedNonce = 0;
 
     public static void main(String[] args) {
@@ -134,6 +134,7 @@ public class Node {
                     if(((ClientMessage) message).getMessage().split(" ").length == 7){
                         int block = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[3]);
                         int nonce = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[6]);
+                        System.out.println("Block: " + block + " Nonce: " + nonce);
                         if(block <= lastReceivedBlock) {
                             continue;
                         } else {

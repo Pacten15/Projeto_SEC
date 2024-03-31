@@ -17,7 +17,6 @@ server_configs = [
     "fake_leader_C_P_config.json",
     "fake_commit_config.json",
     "fake_prepare_config.json",
-    "fake_leader_PP_config.json",
     "leader_pretending_config.json",
     "fake_preprepare_config.json",
     "broadcast_fail_leader.json",
@@ -32,7 +31,7 @@ client_configs = [
 ]
 
 
-server_config = server_configs[0]
+server_config = server_configs[10]
 
 client_config = client_configs[0]
 
