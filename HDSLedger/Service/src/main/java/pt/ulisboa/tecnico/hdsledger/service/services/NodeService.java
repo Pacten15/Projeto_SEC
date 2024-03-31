@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -229,7 +230,7 @@ public class NodeService implements UDPService {
             public void run() {
                 uponConsensusTimerExpired(message);
             }
-        }, 10 * 1000 * message.getRound());
+        }, 5 * 1000 * message.getRound());
     }
 
     public ConsensusMessage createConsensusMessage(String value, int instance, int round) {
@@ -276,6 +277,11 @@ public class NodeService implements UDPService {
 
         currentClients.addAll(clientList);
         value.setInstance(localConsensusInstance);
+
+        if(!verifyBlock(value.toJson())){
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Invalid block received", config.getId()));
+            return;
+        }
 
         InstanceInfo instance = this.instanceInfo.get(localConsensusInstance);
         ConsensusMessage consensusMessage = this.createConsensusMessage(value.toJson(), localConsensusInstance,
@@ -439,7 +445,7 @@ public class NodeService implements UDPService {
 
             makeMeLeaderCP(m);
 
-            if (config.getBehavior() == Behavior.NO_COMMIT_01 && round == 1)
+            if ((config.getBehavior() == Behavior.NO_COMMIT_01 || config.getBehavior() == Behavior.FAKE_ROUND_CHANGE) && round == 1)
                 return;
 
             link.send(senderId, m);
@@ -472,7 +478,7 @@ public class NodeService implements UDPService {
 
                 makeMeLeaderCP(m);
 
-                if (config.getBehavior() == Behavior.NO_COMMIT_01 && round == 1)
+                if ((config.getBehavior() == Behavior.NO_COMMIT_01 || config.getBehavior() == Behavior.FAKE_ROUND_CHANGE) && round == 1)
                     return;
 
                 link.send(senderMessage.getSenderId(), m);
@@ -672,6 +678,8 @@ public class NodeService implements UDPService {
         LOGGER.log(Level.INFO,
                 MessageFormat.format("{0} - Timer expired, sending ROUND_CHANGE message to all nodes", config.getId()));
 
+        makeFakeRoundChange(roundchangeMessage);
+        
         ConsensusMessage consensusMessage = new ConsensusMessageBuilder(config.getId(), Message.Type.ROUND_CHANGE)
                 .setConsensusInstance(consensusInstance)
                 .setRound(round)
@@ -738,7 +746,27 @@ public class NodeService implements UDPService {
             return;
         }
 
+        RoundChangeMessage roundChangeMessage = message.deserializeRoundChangeMessage();
+        int r = roundChangeMessage.getPreparedRound();
+        
+
         int currentRound = instance.getCurrentRound();
+
+        //if(r < currentRound) {
+        //    LOGGER.log(Level.INFO, MessageFormat.format(
+        //            "{0} - Received ROUND_CHANGE message for Consensus Instance {1}, Round {2} but round is less than current round, ignoring",
+        //            config.getId(), consensusInstance, round));
+        //    return;
+        //}
+
+        if (r > currentRound + 1){
+            LOGGER.log(Level.INFO, MessageFormat.format(
+                    "{0} - Received ROUND_CHANGE message for Consensus Instance {1}, Round {2} but round is more than current round + 1, ignoring",
+                    config.getId(), consensusInstance, round));
+            return;
+        }
+
+
         roundChangeMessages.addMessage(message);
 
         Map<String, ConsensusMessage> preparedMessages = message.deserializeRoundChangeMessage().getPreparedMessages();
@@ -1023,6 +1051,15 @@ public class NodeService implements UDPService {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake prepare", config.getId()));
             message.setValue("fake prepare");
 
+        }
+    }
+
+    public void makeFakeRoundChange(RoundChangeMessage message) {
+        if (config.getBehavior() == Behavior.FAKE_ROUND_CHANGE) {
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Making fake round change", config.getId()));
+            message.setPreparedRound(6);
+            message.setPreparedValue("fake round change");
+            message.setPreparedMessages(new HashMap<>());
         }
     }
 

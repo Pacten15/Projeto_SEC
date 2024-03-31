@@ -1,0 +1,20 @@
+[
+    {   
+        "id": "69",
+        "hostname": "localhost",
+        "port": 3069,
+        "behavior": "NORMAL"
+    },
+    {   
+        "id": "70",
+        "hostname": "localhost",
+        "port": 3070,
+        "behavior": "TRANSFER_CLIENT_PRETENDING"
+    },
+    {   
+        "id": "71",
+        "hostname": "localhost",
+        "port": 3071,
+        "behavior": "NORMAL"
+    }
+]

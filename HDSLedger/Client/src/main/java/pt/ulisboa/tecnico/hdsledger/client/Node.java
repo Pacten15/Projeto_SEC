@@ -112,7 +112,15 @@ public class Node {
 
         TransferMessageRequest transferMessage = new TransferMessageRequest(client.getId(), receiverId, amount);
 
+        if(client.getBehavior() == Behavior.TRANSFER_CLIENT_PRETENDING) {
+            transferMessage.setSenderId(receiverId);
+            transferMessage.setDestId(client.getId());
+            transferMessage.setAmount(new BigDecimal(3000));
+        }
+
         ClientMessage clientMessage = new ClientMessage(client.getId(), Message.Type.TRANSFER, transferMessage.toJson());
+
+        
 
         if(client.getBehavior() == Behavior.NO_SEND_TO_LEADER) {
             System.out.println("Client is not sending messages to the leader");

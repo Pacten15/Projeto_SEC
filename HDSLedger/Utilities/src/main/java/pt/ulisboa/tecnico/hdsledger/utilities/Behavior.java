@@ -30,10 +30,18 @@ public enum Behavior {
     SLEEP("SLEEP"),
     //A client process does not send messages to the leader
     NO_SEND_TO_LEADER("NO_SEND_TO_LEADER"),
-    //A client process sends duplicate messages
+    //A client process sends a messages pretending to be another client
+    TRANSFER_CLIENT_PRETENDING("TRANSFER_CLIENT_PRETENDING"),
+    //A client process sends a message
+    CHECK_BALANCE_CLIENT_PRETENDING("CHECK_BALANCE_CLIENT_PRETENDING"),
+    //A client process sends a message with a wrong nonce
+    CHECK_BALANCE_WRONG_NONCE("CHECK_BALANCE_WRONG_NONCE"),
+    //A client tries to send the same message twice 
     DOUBLE_SEND_MESSAGE("DOUBLE_SEND_MESSAGE"),
-    //A server process ignores messages from a client
-    IGNORE_CLIENT("IGNORE_CLIENT");
+    //A process sends a round change message with a different value
+    FAKE_ROUND_CHANGE("FAKE_ROUND_CHANGE"),
+     //A server process ignores messages from a client
+     IGNORE_CLIENT("IGNORE_CLIENT");
     
 
     String behavior;

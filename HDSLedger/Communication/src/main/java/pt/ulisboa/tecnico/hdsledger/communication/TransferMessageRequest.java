@@ -37,8 +37,26 @@ public class TransferMessageRequest extends Message {
         return nonce;
     }
 
+    public void setNonce(int nonce) {
+        this.nonce = nonce;
+    }
+
+    public void setSourceId(String sourceId) {
+        this.sourceId = sourceId;
+    }
+
+    public void setDestId(String destId) {
+        this.destId = destId;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
     public String toJson() {
         return new Gson().toJson(this);
     }
+
+
 
 }

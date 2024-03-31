@@ -27,6 +27,18 @@ public class RoundChangeMessage {
     public Map<String, ConsensusMessage> getPreparedMessages() {
         return preparedMessages;
     }
+
+    public int setPreparedRound(int preparedRound) {
+        return this.preparedRound = preparedRound;
+    }
+
+    public String setPreparedValue(String preparedValue) {
+        return this.preparedValue = preparedValue;
+    }
+
+    public Map<String, ConsensusMessage> setPreparedMessages(Map<String, ConsensusMessage> preparedMessages) {
+        return this.preparedMessages = preparedMessages;
+    }
     
 
     public String toJson() {

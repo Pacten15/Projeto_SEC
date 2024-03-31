@@ -48,7 +48,7 @@ public class ClientService implements UDPService {
                 LOGGER.log(Level.INFO, MessageFormat.format("{0} - Timer expired for {1}", config.getId(), message.getSenderId()));
                 startConsensus(mempool.forceBlock());
             }
-        }, 10000);
+        }, 60000);
 
         mempool.addTimer(message, timer);
     }
