@@ -140,10 +140,23 @@ Forth:
 
         mvn exec:java '-Dexec.args=69 regular_config.json'
 
+        mvn exec:java '-Dexec.args=70 regular_config.json'
 
-    Example of the execution the append command in the client side:
+        mvn exec:java '-Dexec.args=71 regular_config.json'
 
-        append abcd
+
+    Example of the execution of the transfer command in the client side:
+
+
+        transfer <String>'ClientID' <BigDecimal>'Amount'
+
+        transfer 23 1000 -> Transfer to account taht belongs to the clientId 23 1000 dollaretas
+    
+    Example of the execution of the balance command in the client side:
+
+        balance <String>'ClientID' 
+
+        balance 23 -> Check balance of the account that belongs to the clientId 23
 
 
 
