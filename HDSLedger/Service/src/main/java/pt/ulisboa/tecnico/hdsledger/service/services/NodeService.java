@@ -116,17 +116,24 @@ public class NodeService implements UDPService {
         return Leader(instance, round).equals(id);
     }
 
-    public String getPublicKeyServerB64EncodedString(String id) {
-        PublicKey publicKey = CryptoUtils.getPublicKey("../Security/keys/public_key_server_" + id + ".key");
-        return Base64.getEncoder().encodeToString(publicKey.getEncoded());
-    }
+    
 
-    public BigDecimal checkBalance(String id) {
+    public BigDecimal checkBalance(String id, String publicKeyString, int nonce) {
         System.out.println("Checking balance for " + id);
-        Account account = accounts.get(id);
+        Account account = accounts.get(publicKeyString);
         if (account == null) {
             return new BigDecimal(-1);
         }
+        if (account.getLastSeenNonce() != nonce) {
+            return new BigDecimal(-1);
+        }
+        if(!account.getpublicKeyEncodedString().equals(publicKeyString)) {
+            return new BigDecimal(-1);
+        }
+        if (!account.getOwnerId().equals(id)) {
+            return new BigDecimal(-1);
+        }
+
         return account.getBalance();
     }
 
@@ -161,8 +168,10 @@ public class NodeService implements UDPService {
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Valid signature", config.getId()));
 
         //verify if the sender has enough balance and Accounts exist
-        Account senderAccount = accounts.get(transferMessage.getSourceId());
-        Account receiverAccount = accounts.get(transferMessage.getDestId());
+        String senderPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(senderId);
+        String receiverPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(receiverId);
+        Account senderAccount = accounts.get(senderPublicKeyString);
+        Account receiverAccount = accounts.get(receiverPublicKeyString);
 
         if (senderAccount == null || receiverAccount == null) {
             return false;
@@ -189,12 +198,12 @@ public class NodeService implements UDPService {
         //Sleep to let the client node execute and create their keys
         sleep(6000);
         for (ProcessConfig nodeConfig : nodesConfig) {
-            String public_key_node = getPublicKeyServerB64EncodedString(nodeConfig.getId()).toString();
-            this.accounts.put(nodeConfig.getId(), new Account(nodeConfig.getId(), public_key_node));
+            String public_key_node = CryptoUtils.getPublicKeyServerB64EncodedString(nodeConfig.getId());
+            this.accounts.put(public_key_node, new Account(nodeConfig.getId(), public_key_node));
         }
         for (ProcessConfig clientConfig : clientsConfig) {
-            String public_key_client = getPublicKeyServerB64EncodedString(clientConfig.getId()).toString();
-            this.accounts.put(clientConfig.getId(), new Account(clientConfig.getId(), public_key_client));
+            String public_key_client = CryptoUtils.getPublicKeyServerB64EncodedString(clientConfig.getId());
+            this.accounts.put(public_key_client, new Account(clientConfig.getId(), public_key_client));
         }
     }
 
@@ -583,8 +592,10 @@ public class NodeService implements UDPService {
                 if(clientMessage.getType() == Message.Type.TRANSFER) {
                     TransferMessageRequest transferMessage = new Gson().fromJson(clientMessage.getMessage(), TransferMessageRequest.class);
                     System.out.println("Transfer message: " + transferMessage.toJson());
-                    Account senderAccount = accounts.get(transferMessage.getSourceId());
-                    Account receiverAccount = accounts.get(transferMessage.getDestId());
+                    String senderPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(transferMessage.getSourceId());
+                    String receiverPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(transferMessage.getDestId());
+                    Account senderAccount = accounts.get(senderPublicKeyString);
+                    Account receiverAccount = accounts.get(receiverPublicKeyString);
                     senderAccount.decreaseBalance(transferMessage.getAmount());
                     receiverAccount.increaseBalance(transferMessage.getAmount());
                     //Add nonce or update latest nonce for the sender and receiver of the transaction
@@ -593,7 +604,9 @@ public class NodeService implements UDPService {
                     senderAccount.setLastSeenNonce(transferMessage.getNonce());
                     receiverAccount.setLastSeenNonce(transferMessage.getNonce());
                     // fee
-                    Account leaderAccount = accounts.get(Leader(consensusInstance, round));
+                    String LeaderId = Leader(consensusInstance, round);
+                    String publicKeyLeaderString = CryptoUtils.getPublicKeyServerB64EncodedString(LeaderId);
+                    Account leaderAccount = accounts.get(publicKeyLeaderString);
                     senderAccount.decreaseBalance(this.fee);
                     leaderAccount.increaseBalance(this.fee);
                 }
@@ -958,7 +971,10 @@ public class NodeService implements UDPService {
 
                 //Verify if the sender has enough balance
 
-                Account senderAccount = accounts.get(transferMessage.getSourceId());
+                String senderPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(transferMessage.getSourceId());
+                String receiverPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(transferMessage.getDestId());
+
+                Account senderAccount = accounts.get(senderPublicKeyString);
 
                 if(senderAccount.getBalance().compareTo(transferMessage.getAmount()) < 0) {
                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sender does not have enough balance", config.getId()));
@@ -966,7 +982,7 @@ public class NodeService implements UDPService {
                 }
 
                 //Verify if the receiver exists
-                if(accounts.get(transferMessage.getDestId()) == null) {
+                if(accounts.get(receiverPublicKeyString) == null) {
                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Receiver does not exist", config.getId()));
                     return false;
                 }

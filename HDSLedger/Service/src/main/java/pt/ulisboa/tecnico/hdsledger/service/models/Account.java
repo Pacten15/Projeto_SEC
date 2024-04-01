@@ -5,14 +5,14 @@ import java.math.BigDecimal;
 public class Account {
 
     private String ownerId;
-    private String publicKey;
+    private String publicKeyEncodedString;
     private static final int INITIAL_AMOUNT = 10000;
     private BigDecimal balance = new BigDecimal(INITIAL_AMOUNT);
     private int lastSeenNonce;
 
-    public Account(String ownerId, String publicKey) {
+    public Account(String ownerId, String publicKeyEncodeString) {
         this.ownerId = ownerId;
-        this.publicKey = publicKey;
+        this.publicKeyEncodedString = publicKeyEncodeString;
         this.lastSeenNonce = 0;
     }
 
@@ -24,12 +24,12 @@ public class Account {
         this.ownerId = ownerId;
     }
 
-    public String getPublicKey() {
-        return publicKey;
+    public String getpublicKeyEncodedString() {
+        return publicKeyEncodedString;
     }
 
-    public void setPublicKey(String publicKey) {
-        this.publicKey = publicKey;
+    public void setpublicKeyEncodedString(String publicKey) {
+        this.publicKeyEncodedString = publicKey;
     }
 
     public BigDecimal getBalance() {

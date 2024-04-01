@@ -81,12 +81,21 @@ public class ClientService implements UDPService {
 
         CheckBalanceRequest checkBalanceRequest = message.deserializeCheckBalanceRequest();
         String ownerId = checkBalanceRequest.getOwnerId();
-        BigDecimal balance = service.checkBalance(ownerId);
-        ClientMessage responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE,
-        ownerId + " has " + balance + " dollaretas");
-
+        String publicKeyString = checkBalanceRequest.getPublicKey();
+        int nonce = checkBalanceRequest.getNonce();
+        BigDecimal balance = service.checkBalance(ownerId ,publicKeyString, nonce);
+        BigDecimal minus1 = new BigDecimal(-1);
+        ClientMessage responseMessage;
+        if (balance.compareTo(minus1) == 0) {
+            responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE,
+            "Failed to check balance for " + ownerId);
+            LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check failed for {1}", config.getId(), ownerId));
+        } else {
+            responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE,
+            ownerId + " has " + balance + " dollaretas");
+        }
         link.send(message.getSenderId(), responseMessage);
-        LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check succeeded for {1}", config.getId(), ownerId));
+        LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check message sent with success for {1}", config.getId(), ownerId));
     }
 
     private void startConsensus(Optional<Block> block) {

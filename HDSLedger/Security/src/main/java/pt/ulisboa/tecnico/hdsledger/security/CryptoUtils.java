@@ -123,6 +123,11 @@ public class CryptoUtils {
         }
     }
 
+    public static String getPublicKeyServerB64EncodedString(String id) {
+        PublicKey publicKey = getPublicKey("../Security/keys/public_key_server_" + id + ".key");
+        return Base64.getEncoder().encodeToString(publicKey.getEncoded());
+    }
+
     public static KeyPair createKeyPair(int keySize, String publicKeyPath, String privateKeyPath) throws NoSuchAlgorithmException, IOException {
         // Generate the key pair
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");

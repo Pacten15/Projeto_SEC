@@ -2,6 +2,7 @@ package pt.ulisboa.tecnico.hdsledger.client;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.security.PublicKey;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Scanner;
@@ -28,6 +29,8 @@ public class Node {
     private static int quorum_f;
 
     private static int lastReceivedBlock = -1;
+
+    private static int lastSeenNonce = 0;
 
     public static void main(String[] args) {
 
@@ -151,7 +154,8 @@ public class Node {
                         if(block <= lastReceivedBlock) {
                             continue;
                         } else {
-                            lastReceivedBlock = block;                              
+                            lastReceivedBlock = block;
+                            lastSeenNonce = nonce;                             
                         }
                         //Deal with response messages from transfer messages here
                         if (++received_messages >= quorum_f + 1) {
@@ -181,7 +185,8 @@ public class Node {
 
         // send to all servers
         String clientId = parts[1];
-        CheckBalanceRequest checkBalanceMessage = new CheckBalanceRequest(clientId);
+        String publicKeyEncodedString = CryptoUtils.getPublicKeyServerB64EncodedString(clientId);
+        CheckBalanceRequest checkBalanceMessage = new CheckBalanceRequest(clientId, publicKeyEncodedString, lastSeenNonce);
 
         ClientMessage clientMessage = new ClientMessage(client.getId(), Message.Type.CHECK_BALANCE, checkBalanceMessage.toJson());
 
