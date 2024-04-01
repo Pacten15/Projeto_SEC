@@ -40,6 +40,14 @@ public class ClientService implements UDPService {
         this.mempool = mempool;
     }
 
+    public synchronized void sleep(int time) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void setTimer(ClientMessage message) {
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
@@ -61,6 +69,7 @@ public class ClientService implements UDPService {
         }
 
         if (!service.verifyTransactionMessage(message)) {
+            link.send(message.getSenderId(), new ClientMessage(config.getId(), Message.Type.RESPONSE, "Invalid transaction"));
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction failed for {1}", config.getId(), message.getSenderId()));
             return;
         }
@@ -72,7 +81,7 @@ public class ClientService implements UDPService {
         startConsensus(this.mempool.add(message));
     }
 
-    public void checkBalance(ClientMessage message) {
+    public synchronized void checkBalance(ClientMessage message) {
 
         if (message.getType() != Message.Type.CHECK_BALANCE) {
             LOGGER.log(Level.INFO, MessageFormat.format("{0} - Balance check failed for {1}", config.getId(), message.getSenderId()));
@@ -86,6 +95,7 @@ public class ClientService implements UDPService {
         BigDecimal balance = service.checkBalance(ownerId ,publicKeyString, nonce);
         BigDecimal minus1 = new BigDecimal(-1);
         ClientMessage responseMessage;
+
         if (balance.compareTo(minus1) == 0) {
             responseMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE_BALANCE,
             "Failed to check balance for " + ownerId);

@@ -5,6 +5,8 @@ import java.math.BigDecimal;
 import java.security.PublicKey;
 import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.logging.Level;
 
@@ -12,6 +14,7 @@ import pt.ulisboa.tecnico.hdsledger.communication.CheckBalanceRequest;
 import pt.ulisboa.tecnico.hdsledger.communication.ClientMessage;
 import pt.ulisboa.tecnico.hdsledger.communication.Link;
 import pt.ulisboa.tecnico.hdsledger.communication.Message;
+import pt.ulisboa.tecnico.hdsledger.communication.ResponseBalance;
 import pt.ulisboa.tecnico.hdsledger.communication.TransferMessageRequest;
 import pt.ulisboa.tecnico.hdsledger.security.CryptoUtils;
 import pt.ulisboa.tecnico.hdsledger.utilities.Behavior;
@@ -30,7 +33,8 @@ public class Node {
 
     private static int lastReceivedBlock = -1;
 
-    private static int lastSeenNonce = 0;
+    //List of nonces that were used in the transaction between clients in a block
+    private static Map<String, Integer> lastSeenNonceEachClient = new HashMap<>();
 
     public static void main(String[] args) {
 
@@ -55,6 +59,10 @@ public class Node {
             }
             Link link = new Link(clientConfig, clientConfig.getPort(), nodeConfigs, ClientMessage.class);
             link.randomizeCounter();
+
+            for (ProcessConfig client : clientConfigs){
+                lastSeenNonceEachClient.put(client.getId(), 0);
+            }
 
             Scanner scanner = new Scanner(System.in);
 
@@ -147,15 +155,30 @@ public class Node {
                 Message message = link.receive();
 
                 if (message.getType() == Message.Type.RESPONSE) {
-                    if(((ClientMessage) message).getMessage().split(" ").length == 7){
+                    if(((ClientMessage) message).getMessage().split(" ").length > 7){
                         int block = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[3]);
-                        int nonce = Integer.parseInt(((ClientMessage) message).getMessage().split(" ")[6]);
-                        System.out.println("Block: " + block + " Nonce: " + nonce);
+                        //Deal with the nonces that were used in all of the trasanction between clients
+                        String[] messageParts = ((ClientMessage) message).getMessage().split(" ");
+                        StringBuilder listOfReceivedNoncesStringBuilder = new StringBuilder();
+                        for (int i = 6; i < messageParts.length; i++) {
+                            listOfReceivedNoncesStringBuilder.append(messageParts[i]).append(" ");
+                        }
+                        String listOfReceivedNoncesString = listOfReceivedNoncesStringBuilder.toString().trim();
+                
+                        Map<String, Integer> clientIdNonce = new HashMap<>();
+                        String[] pairs = listOfReceivedNoncesString.split(" ");
+                        for (String pair : pairs) {
+                            String[] keyValue = pair.split(":");
+                            clientIdNonce.put(keyValue[0], Integer.parseInt(keyValue[1]));
+                        }
                         if(block <= lastReceivedBlock) {
                             continue;
                         } else {
                             lastReceivedBlock = block;
-                            lastSeenNonce = nonce;                             
+                            //Update the list of nonces that were used in the transaction between clients
+                            for (Map.Entry<String, Integer> entry : clientIdNonce.entrySet()) {
+                                lastSeenNonceEachClient.put(entry.getKey(), entry.getValue());
+                            }                             
                         }
                         //Deal with response messages from transfer messages here
                         if (++received_messages >= quorum_f + 1) {
@@ -186,7 +209,8 @@ public class Node {
         // send to all servers
         String clientId = parts[1];
         String publicKeyEncodedString = CryptoUtils.getPublicKeyServerB64EncodedString(clientId);
-        CheckBalanceRequest checkBalanceMessage = new CheckBalanceRequest(clientId, publicKeyEncodedString, lastSeenNonce);
+        System.out.println(" Sending Check with nonce: " + lastSeenNonceEachClient.get(clientId));
+        CheckBalanceRequest checkBalanceMessage = new CheckBalanceRequest(clientId, publicKeyEncodedString, lastSeenNonceEachClient.get(clientId));
 
         ClientMessage clientMessage = new ClientMessage(client.getId(), Message.Type.CHECK_BALANCE, checkBalanceMessage.toJson());
 
@@ -212,10 +236,16 @@ public class Node {
                 Message message = link.receive();
 
                 if (message.getType() == Message.Type.RESPONSE_BALANCE) {
-                    if (++received_messages >= quorum_f + 1) {
-                        System.out.println(MessageFormat.format("{0} - Received Successful balance message from {1} with content {2}", client.getId(), message.getSenderId(), ((ClientMessage) message).getMessage()));
+
+                    String messageContent = ((ClientMessage) message).getMessage();
+
+                    String ownerId = messageContent.split(" ")[0];
+
+                    if (++received_messages >= quorum_f + 1 && ownerId.equals(clientId)) {
+                        System.out.println(MessageFormat.format("{0} - Received Successful balance message from {1} with content {2}", client.getId(), message.getSenderId(), messageContent));
                         break;
                     }
+                    
                 }
             }
         } catch (IOException | ClassNotFoundException e) {

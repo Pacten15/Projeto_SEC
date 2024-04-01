@@ -1,6 +1,7 @@
 package pt.ulisboa.tecnico.hdsledger.service.services;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.security.PublicKey;
 import java.text.MessageFormat;
@@ -48,6 +49,9 @@ public class NodeService implements UDPService {
     // Current node is leader
     private final ProcessConfig config;
 
+    //ClientNodes configurations
+    private final ProcessConfig[] clientsConfig;
+
     // Link to communicate with nodes
     private final Link link;
     private final Link clientLink;
@@ -87,6 +91,8 @@ public class NodeService implements UDPService {
 
     private ArrayList<Integer> seenNounces = new ArrayList<>();
 
+    private ArrayList<String> clientsIds = new ArrayList<>();
+
     public NodeService(Link link, Link clientLink, ProcessConfig config,
             ProcessConfig[] nodesConfig, ProcessConfig[] clientsConfig, Mempool mempool) {
 
@@ -94,6 +100,7 @@ public class NodeService implements UDPService {
         this.clientLink = clientLink;
         this.config = config;
         this.nodesConfig = nodesConfig;
+        this.clientsConfig = clientsConfig;
         this.mempool = mempool;
 
         createAccounts(clientsConfig);
@@ -167,6 +174,10 @@ public class NodeService implements UDPService {
         }
         LOGGER.log(Level.INFO, MessageFormat.format("{0} - Valid signature", config.getId()));
 
+        if(!clientsIds.contains(senderId) || !clientsIds.contains(receiverId)) {
+            return false;
+        }
+
         //verify if the sender has enough balance and Accounts exist
         String senderPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(senderId);
         String receiverPublicKeyString = CryptoUtils.getPublicKeyServerB64EncodedString(receiverId);
@@ -204,6 +215,7 @@ public class NodeService implements UDPService {
         for (ProcessConfig clientConfig : clientsConfig) {
             String public_key_client = CryptoUtils.getPublicKeyServerB64EncodedString(clientConfig.getId());
             this.accounts.put(public_key_client, new Account(clientConfig.getId(), public_key_client));
+            this.clientsIds.add(clientConfig.getId());
         }
     }
 
@@ -503,6 +515,14 @@ public class NodeService implements UDPService {
         }
     }
 
+    public String mapClientIdNonceString(Map<String, Integer> clientIdNonce) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Integer> entry : clientIdNonce.entrySet()) {
+            sb.append(entry.getKey()).append(":").append(entry.getValue()).append(" ");
+        }
+        return sb.toString();
+    }
+
     /*
      * Handle commit messages and decide if there is a valid quorum
      *
@@ -618,13 +638,13 @@ public class NodeService implements UDPService {
             for (String currentClientId : currentClients) {
                 if(clientIdAndNonce.get(currentClientId) > 0) {
                     ClientMessage clientMessage = new ClientMessage(config.getId(), Message.Type.RESPONSE,
-                        "Success on block " + lastDecidedConsensusInstance + " with nonce " + clientIdAndNonce.get(currentClientId));
+                        "Success on block " + lastDecidedConsensusInstance + " with nonces: " + mapClientIdNonceString(clientIdAndNonce));
 
                     clientLink.send(currentClientId, clientMessage);
                     LOGGER.log(Level.INFO, MessageFormat.format("{0} - Sent Transaction SUCCESS message to {1}", config.getId(), currentClientId));
                 }
                 else {
-                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction message does to {1}", config.getId(), currentClientId));
+                    LOGGER.log(Level.INFO, MessageFormat.format("{0} - Transaction message does nothing to {1}", config.getId(), currentClientId));
                 }
 
                 
